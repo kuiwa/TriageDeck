@@ -44,7 +44,7 @@ services:
       KC_HEALTH_ENABLED: "true"
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
-    command: ["start-dev"]
+    command: ["start-dev", "--import-realm"]
     ports:
       - "8081:8080"
     healthcheck:
@@ -52,6 +52,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 20
+    volumes:
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
 
   app:
     build: .
