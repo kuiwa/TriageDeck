@@ -1,0 +1,33 @@
+[versions]
+spring-boot = "3.5.0"
+spring-kafka = "3.5.0"
+springdoc = "2.7.0"
+jcasbin = "1.4.2"
+postgresql = "42.7.4"
+flyway = "10.21.0"
+testcontainers = "1.20.3"
+archunit = "1.2.3"
+keycloak-testcontainers = "2.4.0"
+spring-ai = "1.0.0"
+
+[libraries]
+spring-boot-web = { group = "org.springframework.boot", name = "spring-boot-starter-web", version = "3.5.0" }
+spring-boot-validation = { group = "org.springframework.boot", name = "spring-boot-starter-validation", version = "3.5.0" }
+spring-boot-actuator = { group = "org.springframework.boot", name = "spring-boot-starter-actuator", version = "3.5.0" }
+spring-boot-security = { group = "org.springframework.boot", name = "spring-boot-starter-security", version = "3.5.0" }
+oauth2-resource-server = { group = "org.springframework.boot", name = "spring-boot-starter-oauth2-resource-server", version = "3.5.0" }
+spring-boot-data-jpa = { group = "org.springframework.boot", name = "spring-boot-starter-data-jpa", version = "3.5.0" }
+spring-boot-test = { group = "org.springframework.boot", name = "spring-boot-starter-test", version = "3.5.0" }
+spring-kafka = { group = "org.springframework.kafka", name = "spring-kafka", version = "3.5.0" }
+postgresql = { group = "org.postgresql", name = "postgresql", version = "42.7.4" }
+flyway-core = { group = "org.flywaydb", name = "flyway-core", version = "10.21.0" }
+flyway-postgresql = { group = "org.flywaydb", name = "flyway-database-postgresql", version = "10.21.0" }
+jcasbin = { group = "org.casbin", name = "jcasbin", version = "1.4.2" }
+springdoc-openapi = { group = "org.springdoc", name = "springdoc-openapi-starter-webmvc-ui", version = "2.7.0" }
+spring-ai-openai = { group = "org.springframework.ai", name = "spring-ai-starter-model-openai", version = "1.0.0" }
+archunit = { group = "org.archunit", name = "archunit-junit5", version = "1.2.3" }
+testcontainers-postgresql = { group = "org.testcontainers", name = "postgresql", version = "1.20.3" }
+testcontainers-kafka = { group = "org.testcontainers", name = "kafka", version = "1.20.3" }
+testcontainers-keycloak = { group = "com.github.dasniko", name = "testcontainers-keycloak", version = "2.4.0" }
+
+[bundles]

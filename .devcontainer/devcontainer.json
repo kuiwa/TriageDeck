@@ -1,0 +1,23 @@
+{
+  "name": "TriageDeck - Java 21 + Gradle + Docker",
+  "image": "mcr.microsoft.com/devcontainers/java:21",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "lts"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "vscjava.vscode-java-pack",
+        "vscjava.vscode-gradle",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode"
+      ]
+    }
+  },
+  "runArgs": ["--group-add", "docker"],
+  "postCreateCommand": "bash /workspaces/TriageDeck/scripts/setup-env.sh",
+  "remoteUser": "vscode"
+}
