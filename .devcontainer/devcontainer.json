@@ -13,7 +13,8 @@
         "vscjava.vscode-java-pack",
         "vscjava.vscode-gradle",
         "dbaeumer.vscode-eslint",
-        "esbenp.prettier-vscode"
+        "esbenp.prettier-vscode",
+        "saoudrizwan.claude-dev"
       ]
     }
   },
