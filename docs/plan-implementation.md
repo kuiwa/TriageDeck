@@ -21,11 +21,11 @@
 
 **目标**：让 `./gradlew`、`docker compose` 在本机可用，仓库可提交。
 
-| 任务 | 内容 | 交付物 | 验收（DoD） |
-|------|------|--------|-------------|
-| T-ENV-01 | 安装 Gradle 并生成 wrapper | `gradlew`、`gradle/wrapper/` | `./gradlew --version` 输出版本 |
-| T-ENV-02 | 启动 Docker Desktop，安装 compose v2 插件 | Docker 可用 | `docker compose version` 正常输出 |
-| T-ENV-03 | 初始化 Git 仓库并关联远程 | `.git/`、远程 `origin` | `git remote -v` 可见 origin |
+| 任务 | 内容 | 交付物 | 验收（DoD） | 完成日期 / 环境 |
+|------|------|--------|-------------|----------------|
+| T-ENV-01 | 安装 Gradle 并生成 wrapper | `gradlew`、`gradle/wrapper/` | `./gradlew --version` 输出版本 | 2026-11-24 / codespace |
+| T-ENV-02 | 启动 Docker Desktop，安装 compose v2 插件 | Docker 可用 | `docker compose version` 正常输出 | - |
+| T-ENV-03 | 初始化 Git 仓库并关联远程 | `.git/`、远程 `origin` | `git remote -v` 可见 origin | - |
 
 ---
 
@@ -33,11 +33,11 @@
 
 **目标**：项目能编译、Flyway 建表、Docker 容器启动、健康检查通过，CICD 首次触发。
 
-| 任务 | 内容 | 交付物 | 验收（DoD） |
-|------|------|--------|-------------|
-| T01 | Gradle 多模骨架 + `V1__init.sql` + `Dockerfile` + `docker-compose.yml` | `settings.gradle`、各模块 `build.gradle`、`gradle/libs.versions.toml`、`app/src/main/resources/db/migration/V1__init.sql`、`Dockerfile`、`docker-compose.yml` | `./gradlew build` 通过；`docker compose up -d` 四容器 healthy；`curl localhost:8080/actuator/health` 返回 `{"status":"UP"}` |
-| T-CICD-01 | GitHub Actions CI（编译 + 测试） | `.github/workflows/ci.yml` | push/main 触发，`gradle test` 通过 |
-| T-CICD-02 | GitHub Actions CD（镜像构建 + 推送 + 部署） | `.github/workflows/cd.yml` | 镜像推送 GHCR，`docker compose` 拉取运行 |
+| 任务 | 内容 | 交付物 | 验收（DoD） | 完成日期 / 环境 |
+|------|------|--------|-------------|----------------|
+| T01 | Gradle 多模骨架 + `V1__init.sql` + `Dockerfile` + `docker-compose.yml` | `settings.gradle`、各模块 `build.gradle`、`gradle/libs.versions.toml`、`app/src/main/resources/db/migration/V1__init.sql`、`Dockerfile`、`docker-compose.yml` | `./gradlew build` 通过；`docker compose up -d` 四容器 healthy；`curl localhost:8080/actuator/health` 返回 `{"status":"UP"}` | - |
+| T-CICD-01 | GitHub Actions CI（编译 + 测试） | `.github/workflows/ci.yml` | push/main 触发，`gradle test` 通过 | - |
+| T-CICD-02 | GitHub Actions CD（镜像构建 + 推送 + 部署） | `.github/workflows/cd.yml` | 镜像推送 GHCR，`docker compose` 拉取运行 | - |
 
 ---
 
@@ -45,17 +45,17 @@
 
 **目标**：认证授权、告警摄入/列表/清除、审计写入/查询/导出、Kafka 两链路全部可用。
 
-| 任务 | 模块 | 核心内容 | 验收 |
-|------|------|----------|------|
-| T02 | security | Keycloak OIDC+PKCE，JWT 校验，`/api/whoami` | 无 token 401，登录后返回 roles/permissions |
-| T03 | security | Casbin 策略加载，`@RequirePermission` 拦截，`/api/_perm/check` | 无权访问 403，策略改重启即生效 |
-| T04 | alert | HTTP/Kafka 告警摄入，fingerprint 去重（upsert），`processed_event` 幂等 | 同指纹 10 分钟内只有一行，`occurrence_count` 累加 |
-| T05 | alert | 活动列表、详情，分页排序，筛选 | 返回 `AlertView` 数组，非 null |
-| T06 | alert | 清除告警（`alerts_active → alerts_history` 原子移动） | 单事务两语句，并发清除一成一败，历史 1 行 |
-| T07 | alert | 历史告警查询 | `cleared_at` 倒序，支持按 `clearedBy`/`source` 筛选 |
-| T08 | audit | 审计写入（`@Auditable` 切面、403 审计、Keycloak 采集） | 登录/登出/越权均有审计记录，401 不审计 |
-| T09 | audit | 审计列表、导出 CSV、脱敏 | 10 万行查询 <1s，CSV 表头中文，IP 脱敏 |
-| T10 | platform/notify | Kafka 两链路，DLT，事务后发布，通知落库 | 回滚不发消息，DLT 后人工可排查 |
+| 任务 | 模块 | 核心内容 | 验收 | 完成日期 / 环境 |
+|------|------|----------|------|----------------|
+| T02 | security | Keycloak OIDC+PKCE，JWT 校验，`/api/whoami` | 无 token 401，登录后返回 roles/permissions | - |
+| T03 | security | Casbin 策略加载，`@RequirePermission` 拦截，`/api/_perm/check` | 无权访问 403，策略改重启即生效 | - |
+| T04 | alert | HTTP/Kafka 告警摄入，fingerprint 去重（upsert），`processed_event` 幂等 | 同指纹 10 分钟内只有一行，`occurrence_count` 累加 | - |
+| T05 | alert | 活动列表、详情，分页排序，筛选 | 返回 `AlertView` 数组，非 null | - |
+| T06 | alert | 清除告警（`alerts_active → alerts_history` 原子移动） | 单事务两语句，并发清除一成一败，历史 1 行 | - |
+| T07 | alert | 历史告警查询 | `cleared_at` 倒序，支持按 `clearedBy`/`source` 筛选 | - |
+| T08 | audit | 审计写入（`@Auditable` 切面、403 审计、Keycloak 采集） | 登录/登出/越权均有审计记录，401 不审计 | - |
+| T09 | audit | 审计列表、导出 CSV、脱敏 | 10 万行查询 <1s，CSV 表头中文，IP 脱敏 | - |
+| T10 | platform/notify | Kafka 两链路，DLT，事务后发布，通知落库 | 回滚不发消息，DLT 后人工可排查 | - |
 
 > 每个 T 任务开始前，按 AGENTS.md 写“实现计划（不超过 10 行）”，再写代码。
 
@@ -65,11 +65,11 @@
 
 **目标**：AI 简报、自然语言查询可用，前端 React 首屏可交互，类型由 openapi 生成。
 
-| 任务 | 内容 | 验收 |
-|------|------|------|
-| T11 | AI 简报 SSE 流式，只读端口，mock 降级 | 首字节 <2s，模型不可达返回 503 |
-| T12 | AI 自然语言查询，白名单过滤，不生成 SQL | 返回 `filter` JSON，`droppedFields` 透明 |
-| T13 | 前端 React+Vite+TanStack Query，OIDC 内存 token，类型生成与对齐 | 首屏 2s，`npm run typecheck` 通过 |
+| 任务 | 内容 | 验收 | 完成日期 / 环境 |
+|------|------|------|----------------|
+| T11 | AI 简报 SSE 流式，只读端口，mock 降级 | 首字节 <2s，模型不可达返回 503 | - |
+| T12 | AI 自然语言查询，白名单过滤，不生成 SQL | 返回 `filter` JSON，`droppedFields` 透明 | - |
+| T13 | 前端 React+Vite+TanStack Query，OIDC 内存 token，类型生成与对齐 | 首屏 2s，`npm run typecheck` 通过 | - |
 
 ---
 
@@ -77,9 +77,9 @@
 
 **目标**：满足所有 NFR，可完整 8 分钟演示剧本。
 
-| 任务 | 内容 | 验收 |
-|------|------|------|
-| T-NFR | NFR-01 一条命令启全部；NFR-07 8 分钟剧本；NFR-08 离线演示（AI mock） | `docker compose up -d --build` 后 8 分钟内走完主剧本；断网主流程仍可演示 |
+| 任务 | 内容 | 验收 | 完成日期 / 环境 |
+|------|------|------|----------------|
+| T-NFR | NFR-01 一条命令启全部；NFR-07 8 分钟剧本；NFR-08 离线演示（AI mock） | `docker compose up -d --build` 后 8 分钟内走完主剧本；断网主流程仍可演示 | - |
 
 ---
 
