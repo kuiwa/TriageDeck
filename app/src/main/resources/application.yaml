@@ -2,7 +2,7 @@ spring:
   application:
     name: triagedeck
   datasource:
-    url: ${DB_URL:jdbc:postgresql://postgres:5432/triagedeck}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/triagedeck}
     username: ${DB_USERNAME:triagedeck}
     password: ${DB_PASSWORD:triagedeck}
   flyway:

@@ -1,6 +1,6 @@
 [versions]
 spring-boot = "3.5.0"
-spring-kafka = "3.5.0"
+spring-kafka = "3.3.6"
 springdoc = "2.7.0"
 jcasbin = "1.4.2"
 postgresql = "42.7.4"
@@ -18,7 +18,7 @@ spring-boot-security = { group = "org.springframework.boot", name = "spring-boot
 oauth2-resource-server = { group = "org.springframework.boot", name = "spring-boot-starter-oauth2-resource-server", version = "3.5.0" }
 spring-boot-data-jpa = { group = "org.springframework.boot", name = "spring-boot-starter-data-jpa", version = "3.5.0" }
 spring-boot-test = { group = "org.springframework.boot", name = "spring-boot-starter-test", version = "3.5.0" }
-spring-kafka = { group = "org.springframework.kafka", name = "spring-kafka", version = "3.5.0" }
+spring-kafka = { group = "org.springframework.kafka", name = "spring-kafka", version.ref = "spring-kafka" }
 postgresql = { group = "org.postgresql", name = "postgresql", version = "42.7.4" }
 flyway-core = { group = "org.flywaydb", name = "flyway-core", version = "10.21.0" }
 flyway-postgresql = { group = "org.flywaydb", name = "flyway-database-postgresql", version = "10.21.0" }
