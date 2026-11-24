@@ -21,7 +21,8 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://keycloak:8081/realms/triagedeck}
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8081/realms/triagedeck}
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8081/realms/triagedeck/protocol/openid-connect/certs}
   threads:
     virtual:
       enabled: true

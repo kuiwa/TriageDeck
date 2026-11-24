@@ -62,7 +62,8 @@ services:
       DB_USERNAME: triagedeck
       DB_PASSWORD: triagedeck
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      KEYCLOAK_ISSUER_URI: http://keycloak:8081/realms/triagedeck
+      KEYCLOAK_ISSUER_URI: http://localhost:8081/realms/triagedeck
+      KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/triagedeck/protocol/openid-connect/certs
       KC_COLLECTOR_SECRET: ${KC_COLLECTOR_SECRET:-}
     ports:
       - "8080:8080"

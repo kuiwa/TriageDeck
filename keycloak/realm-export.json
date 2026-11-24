@@ -13,11 +13,21 @@
       "protocol": "openid-connect",
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": false,
-      "redirectUris": ["http://localhost:5173/callback", "http://localhost:8080/callback"],
-      "webOrigins": ["http://localhost:5173", "http://localhost:8080"],
+      "redirectUris": [
+        "http://localhost:5173/callback",
+        "http://localhost:8080/callback",
+        "http://127.0.0.1:5173/callback",
+        "http://127.0.0.1:8080/callback"
+      ],
+      "webOrigins": [
+        "http://localhost:5173",
+        "http://localhost:8080",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:8080"
+      ],
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "http://localhost:5173/*##http://localhost:8080/*"
+        "post.logout.redirect.uris": "http://localhost:5173/*##http://localhost:8080/*##http://127.0.0.1:5173/*##http://127.0.0.1:8080/*"
       }
     }
   ],
@@ -25,6 +35,9 @@
     {
       "username": "operator",
       "enabled": true,
+      "email": "operator@triagedeck.local",
+      "firstName": "Test",
+      "lastName": "Operator",
       "emailVerified": true,
       "credentials": [{ "type": "password", "value": "operator", "temporary": false }],
       "realmRoles": ["operator"]
@@ -32,6 +45,9 @@
     {
       "username": "viewer",
       "enabled": true,
+      "email": "viewer@triagedeck.local",
+      "firstName": "Test",
+      "lastName": "Viewer",
       "emailVerified": true,
       "credentials": [{ "type": "password", "value": "viewer", "temporary": false }],
       "realmRoles": ["viewer"]
