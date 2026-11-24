@@ -1,0 +1,3 @@
+- 读了什么：AGENTS.md §2、§8；docs/plan-implementation.md M1、§3.1、§3.3；docs/ai-log/README.md。
+- 一次通过还是返工几次：1 次通过；CD workflow YAML 解析与 `docker compose build app` 通过。
+- 人工改了哪里：无；仅新增 CD workflow。
