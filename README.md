@@ -28,6 +28,17 @@ Java 21 / Spring Boot 3.5.x（虚拟线程）、PostgreSQL 16 + Flyway、Kafka�
 Keycloak（OIDC + PKCE）、Casbin（jcasbin）、Spring AI（1.0.x）、
 React 19 + TypeScript + Vite + TanStack Query + Tailwind。
 
+## 本地开发一键启动
+
+在仓库根目录分别打开两个终端：
+
+```bash
+./scripts/start-stack.sh      # 启动 app / Keycloak / PostgreSQL / Kafka，等待健康检查
+./scripts/start-frontend.sh   # 首次自动 npm ci，然后启动 Vite
+```
+
+前端默认访问 `http://localhost:5173`。启动脚本可从任意工作目录调用；停止前端按 `Ctrl+C`，停止容器运行 `docker compose down`（不要加 `-v`，以保留 PostgreSQL 数据）。
+
 ## 快速开始（T13 完成后填实；当前命令仅为目标态）
 
 ```bash
