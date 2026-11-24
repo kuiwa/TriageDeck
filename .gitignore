@@ -53,3 +53,6 @@ test-results/
 *.iml
 .vscode/
 .DS_Store
+
+# Persistent VS Code session state; may contain private conversation data
+.devcontainer/vscode-state/

@@ -26,6 +26,7 @@
 | 14 | `docs/adr/` | 决策记录（0001…0010） | v1.0 待评审 | 全体 |
 | 15 | `docs/traceability.md` | 追溯矩阵（US → 章节 → 端点 → 表 → 测试 → T → 状态） | 已填充（T13 更新测试列） | 全体 |
 | 16 | `docs/ai-log/Txx.md` | 每个任务的输入/返工/人工改动三行记录 | 随任务产生 | 全体 |
+| 17 | `docs/session-sync-recovery.md` | Copilot Chat 本地会话存储与 Rebuild 后恢复排查记录（非持久性保证） | 运维记录 | 开发者 |
 
 ## 2. 本套文档的修订原则
 
