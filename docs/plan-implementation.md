@@ -52,10 +52,10 @@ M1 当前状态：T01 和 CI 完成；CD 已验证推送后端镜像，但尚未
 | T02 | security | Keycloak OIDC+PKCE，JWT 校验，`/api/whoami` | 无 token 401，登录后返回 roles/permissions | 2026-11-24 / Codespace（已完成） |
 | T03 | security | Casbin 策略加载，`@RequirePermission` 拦截，`/api/_perm/check` | 无权访问 403，策略改重启即生效 | 2026-11-25 / Codespace（已完成） |
 | T04 | alert | HTTP/Kafka 告警摄入，fingerprint 去重（upsert），`processed_event` 幂等 | 同指纹 10 分钟内只有一行，`occurrence_count` 累加 | 2026-11-25 / Codespace（HTTP/指纹已完成；Kafka/processed_event 待 T10） |
-| T05 | alert | 活动列表、详情，分页排序，筛选 | 返回 `AlertView` 数组，非 null | 2026-11-25 / Codespace |
-| T06 | alert | 清除告警（`alerts_active → alerts_history` 原子移动） | 单事务两语句，并发清除一成一败，历史 1 行 | 2026-11-25 / Codespace |
-| T07 | alert | 历史告警查询 | `cleared_at` 倒序，支持按 `clearedBy`/`source` 筛选 | 2026-11-25 / Codespace |
-| T08 | audit | 审计写入（`@Auditable` 切面、403 审计、Keycloak 采集） | 登录/登出/越权均有审计记录，401 不审计 | 2026-11-25 / Codespace |
+| T05 | alert | 活动列表、详情，分页排序，筛选 | 返回 `AlertView` 数组，非 null | 2026-11-25 / DELL |
+| T06 | alert | 清除告警（`alerts_active → alerts_history` 原子移动） | 单事务两语句，并发清除一成一败，历史 1 行 | 2026-11-25 / DELL |
+| T07 | alert | 历史告警查询 | `cleared_at` 倒序，支持按 `clearedBy`/`source` 筛选 | 2026-11-25 / DELL |
+| T08 | audit | 审计写入（`@Auditable` 切面、403 审计、Keycloak 采集） | 登录/登出/越权均有审计记录，401 不审计 | 2026-11-25 / DELL |
 | T09 | audit | 审计列表、导出 CSV、脱敏 | 10 万行查询 <1s，CSV 表头中文，IP 脱敏 | - |
 | T10 | platform/notify | Kafka 两链路，DLT，事务后发布，通知落库 | 回滚不发消息，DLT 后人工可排查 | - |
 
