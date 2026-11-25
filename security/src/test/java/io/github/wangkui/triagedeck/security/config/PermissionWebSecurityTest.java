@@ -1,6 +1,7 @@
 package io.github.wangkui.triagedeck.security.config;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -34,6 +35,7 @@ import org.springframework.test.context.web.WebAppConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
@@ -107,6 +109,21 @@ class PermissionWebSecurityTest {
                 .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
     }
 
+    @Test
+    void should_allow_service_to_reach_annotated_alert_ingest_handler() throws Exception {
+        mockMvc.perform(post("/api/alerts/test-ingest")
+                        .header("Authorization", "Bearer service"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void should_deny_viewer_at_annotated_alert_ingest_handler() throws Exception {
+        mockMvc.perform(post("/api/alerts/test-ingest")
+                        .header("Authorization", "Bearer viewer"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
+    }
+
     @Configuration
     @EnableWebMvc
     @EnableWebSecurity
@@ -116,7 +133,8 @@ class PermissionWebSecurityTest {
         PermissionService.class,
         WhoamiController.class,
         PermissionCheckController.class,
-        TestController.class
+        TestController.class,
+        AlertTestController.class
     })
     static class TestConfiguration {
 
@@ -132,6 +150,7 @@ class PermissionWebSecurityTest {
                     case "admin" -> List.of("admin");
                     case "operator" -> List.of("operator");
                     case "viewer" -> List.of("viewer");
+                    case "service" -> List.of("service");
                     default -> List.of();
                 };
                 Instant now = Instant.now();
@@ -159,6 +178,16 @@ class PermissionWebSecurityTest {
         @GetMapping("/api/test/undeclared")
         String undeclared() {
             return "must be denied";
+        }
+    }
+
+    @RestController
+    static class AlertTestController {
+
+        @PostMapping("/api/alerts/test-ingest")
+        @RequirePermission(obj = "alert", act = "ingest")
+        String ingest() {
+            return "accepted";
         }
     }
 }

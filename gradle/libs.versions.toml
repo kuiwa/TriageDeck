@@ -6,7 +6,7 @@ jcasbin = "1.4.0"
 postgresql = "42.7.4"
 flyway = "10.21.0"
 testcontainers = "1.20.3"
-archunit = "1.2.3"
+archunit = "1.2.2"
 keycloak-testcontainers = "2.4.0"
 spring-ai = "1.0.0"
 junit-platform = "1.12.2"
@@ -27,7 +27,7 @@ flyway-postgresql = { group = "org.flywaydb", name = "flyway-database-postgresql
 jcasbin = { group = "org.casbin", name = "jcasbin", version.ref = "jcasbin" }
 springdoc-openapi = { group = "org.springdoc", name = "springdoc-openapi-starter-webmvc-ui", version = "2.7.0" }
 spring-ai-openai = { group = "org.springframework.ai", name = "spring-ai-starter-model-openai", version = "1.0.0" }
-archunit = { group = "org.archunit", name = "archunit-junit5", version = "1.2.3" }
+archunit = { group = "com.tngtech.archunit", name = "archunit-junit5", version.ref = "archunit" }
 testcontainers-postgresql = { group = "org.testcontainers", name = "postgresql", version = "1.20.3" }
 testcontainers-kafka = { group = "org.testcontainers", name = "kafka", version = "1.20.3" }
 testcontainers-keycloak = { group = "com.github.dasniko", name = "testcontainers-keycloak", version = "2.4.0" }
