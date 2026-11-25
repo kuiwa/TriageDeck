@@ -1,15 +1,17 @@
 package io.github.wangkui.triagedeck.alert.repo;
 
+import io.github.wangkui.triagedeck.alert.api.AlertHistoryView;
 import io.github.wangkui.triagedeck.alert.api.AlertView;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.core.namedparam.SqlParameterSource;
 import org.springframework.stereotype.Repository;
 
+import java.util.*;
 import java.util.Optional;
 
 @Repository
-public class AlertHistoryRepositoryImpl implements AlertHistoryRepository {
+public class AlertHistoryRepository {
 
     private static final String INSERT_CLEARED_SQL =
             "INSERT INTO alerts_history "
@@ -23,16 +25,16 @@ public class AlertHistoryRepositoryImpl implements AlertHistoryRepository {
 
     private static final String SELECT_BY_ID_SQL =
             "SELECT id, severity, source, type, resource_id, event_code, message, "
-            + "first_seen_at, last_seen_at, occurrence_count, fingerprint "
+            + "first_seen_at, last_seen_at, occurrence_count, fingerprint, "
+            + "cleared_at, cleared_by, cleared_reason, clear_mode "
             + "FROM alerts_history WHERE id = :id";
 
     private final NamedParameterJdbcTemplate jdbc;
 
-    public AlertHistoryRepositoryImpl(NamedParameterJdbcTemplate jdbc) {
+    public AlertHistoryRepository(NamedParameterJdbcTemplate jdbc) {
         this.jdbc = jdbc;
     }
 
-    @Override
     public boolean insertCleared(
             UUID id,
             String fingerprint,
@@ -71,19 +73,17 @@ public class AlertHistoryRepositoryImpl implements AlertHistoryRepository {
 
         try {
             jdbc.update(INSERT_CLEARED_SQL, params);
-            return true; // inserted successfully
+            return true;
         } catch (Exception e) {
-            // Primary key violation → already exists in history
             return false;
         }
     }
 
-    @Override
     public Optional<AlertView> findById(UUID id) {
         try {
             AlertView.AlertViewBuilder builder = AlertView.builder();
-            AlertView view = jdbc.query(SELECT_BY_ID_SQL, 
-                    MapSqlParameterSource.fromMap(Map.of("id", id.toString())), 
+            AlertView view = jdbc.query(SELECT_BY_ID_SQL,
+                    MapSqlParameterSource.fromMap(Map.of("id", id.toString())),
                     (rs, rowNum) -> {
                         builder.id(UUID.fromString(rs.getString("id")));
                         builder.severity(io.github.wangkui.triagedeck.alert.domain.Severity.valueOf(rs.getString("severity")));
@@ -102,5 +102,16 @@ public class AlertHistoryRepositoryImpl implements AlertHistoryRepository {
         } catch (Exception e) {
             return Optional.empty();
         }
+    }
+
+    /** Get count with custom WHERE clause. */
+    public long getCount(String whereClause, Map<String, Object> params) {
+        String sql = String.format("SELECT COUNT(*) FROM alerts_history %s", whereClause);
+        return jdbc.queryForObject(sql, params, Long.class);
+    }
+
+    /** Execute arbitrary query with named parameters. */
+    public List<Map<String, Object>> query(String sql, Map<String, Object> params) {
+        return jdbc.queryForList(sql, params);
     }
 }
