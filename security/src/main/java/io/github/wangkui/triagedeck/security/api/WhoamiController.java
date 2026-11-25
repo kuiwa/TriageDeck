@@ -3,6 +3,7 @@ package io.github.wangkui.triagedeck.security.api;
 import java.util.List;
 import java.util.Set;
 
+import io.github.wangkui.triagedeck.platform.security.RequirePermission;
 import io.github.wangkui.triagedeck.security.auth.CurrentActor;
 import io.github.wangkui.triagedeck.security.auth.PermissionService;
 
@@ -20,6 +21,7 @@ public class WhoamiController {
     }
 
     @GetMapping("/api/whoami")
+    @RequirePermission(obj = "whoami", act = "read")
     public WhoamiView whoami(@AuthenticationPrincipal CurrentActor actor) {
         Set<String> roleSet = Set.copyOf(actor.roles());
         List<PermissionService.Permission> permissions =

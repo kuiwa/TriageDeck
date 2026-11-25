@@ -2,6 +2,7 @@ package io.github.wangkui.triagedeck.security.api;
 
 import java.util.Set;
 
+import io.github.wangkui.triagedeck.platform.security.RequirePermission;
 import io.github.wangkui.triagedeck.security.auth.CurrentActor;
 import io.github.wangkui.triagedeck.security.auth.PermissionService;
 
@@ -26,9 +27,10 @@ public class PermissionCheckController {
     }
 
     @GetMapping("/api/_perm/check")
+    @RequirePermission(obj = "_perm", act = "check")
     public PermCheckView check(
-            @RequestParam String obj,
-            @RequestParam String act,
+            @RequestParam("obj") String obj,
+            @RequestParam("act") String act,
             @AuthenticationPrincipal CurrentActor actor) {
         if (!permissionService.isValidObjectAndAction(obj, act)) {
             throw new ResponseStatusException(
