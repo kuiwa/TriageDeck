@@ -35,11 +35,17 @@
 
 **目标**：项目能编译、Flyway 建表、Docker 容器启动、健康检查通过，CICD 首次触发。
 
-| 任务 | 内容 | 交付物 | 验收（DoD） | 完成日期 / 环境 |
-|------|------|--------|-------------|----------------|
-| T01 | Gradle 多模骨架 + `V1__init.sql` + `Dockerfile` + `docker-compose.yml` | `settings.gradle`、各模块 `build.gradle`、`gradle/libs.versions.toml`、`app/src/main/resources/db/migration/V1__init.sql`、`Dockerfile`、`docker-compose.yml` | `./gradlew build` 通过；`docker compose up -d` 四容器 healthy；`curl localhost:8080/actuator/health` 返回 `{"status":"UP"}` | - |
-| T-CICD-01 | GitHub Actions CI（编译 + 测试） | `.github/workflows/ci.yml` | push/main 触发，`gradle test` 通过 | - |
-| T-CICD-02 | GitHub Actions CD（前后端镜像 + GHCR + Codespaces 私有预览） | `.github/workflows/cd.yml`、`Dockerfile`、部署用 Compose 配置 | main 合并后构建含前端静态资源的 app 镜像，推送 SHA 与 `latest` tag；Codespace runner 拉取该 SHA 镜像并更新服务；端口保持 private；首页、健康检查、OIDC 登录及 `/api/whoami` 验证通过 | 后端镜像 GHCR 推送已验证；前端打包、自动部署与端到端验收未完成 |
+| 任务 | 内容 | 交付物 | 验收（DoD） | 状态 | 完成日期 / 环境 |
+|------|------|--------|-------------|------|----------------|
+| T01 | Gradle 多模骨架 + `V1__init.sql` + `Dockerfile` + `docker-compose.yml` | `settings.gradle`、各模块 `build.gradle`、`gradle/libs.versions.toml`、`app/src/main/resources/db/migration/V1__init.sql`、`Dockerfile`、`docker-compose.yml` | `./gradlew build` 通过；`docker compose up -d` 四容器 healthy；`curl localhost:8080/actuator/health` 返回 `{"status":"UP"}` | ✅ 完成 | 2026-11-24 / Codespace |
+| T-CICD-01 | GitHub Actions CI（编译 + 测试） | `.github/workflows/ci.yml` | PR 与 main push 的 `gradle test` 均通过 | ⚠️ 未完成：PR 检查通过，但 main push 的 test job 失败；当前本地命令通过，需查明远端差异 | 2026-11-25 / GitHub Actions + Codespace |
+| T-CICD-02 | GitHub Actions CD（前后端镜像 + GHCR + Codespaces 私有预览） | `.github/workflows/cd.yml`、`Dockerfile`、部署用 Compose 配置 | main 合并后构建含前端静态资源的 app 镜像，推送 SHA 与 `latest` tag；Codespace runner 拉取该 SHA 镜像并更新服务；端口保持 private；首页、健康检查、OIDC 登录及 `/api/whoami` 验证通过 | 🟡 部分完成：已验证后端镜像 GHCR 推送；前端打包、自动部署与端到端验收未完成 | 2026-11-25 / GitHub Actions（仅镜像推送） |
+
+**M1 当前状态与下一步（截至 2026-11-25）**
+
+1. T01 骨架与基础设施验收完成。
+2. 先处理 T-CICD-01：PR #1 检查通过，但合并后 main push 的 CI `test` job 失败；当前 Codespace 执行 `./gradlew test --no-daemon` 通过。需查明并消除远端失败，再确认 main 上 CI 变绿。此前 PR 出现过 `failOnNoDiscoveredTests` 配置错误，但当前工作树不含该配置，不能在未核实日志前将其当作本次 main 失败根因。
+3. 随后继续 T-CICD-02：现有 CD 只构建并推送后端镜像，没有前端资源集成、Codespaces runner 部署或部署后登录验收；GHCR 推送成功不代表已部署可访问。
 
 ---
 
@@ -167,6 +173,7 @@ Codespaces 转发端口必须设为 **Private**。预览使用 Codespaces 提供
 |------|------|------|------|
 | v1.0 | 2026-11-24 | 首版：总体策略、M0–M4 里程碑、CICD 设计、微服务决策点 | AI 生成 |
 | v1.1 | 2026-11-25 | 明确 T-CICD-02 交付完整前后端镜像及 Codespaces 私有预览，补充 runner 安全边界、HTTPS/OIDC 配置、部署验收与 Codespace 停止限制 | AI 辅助 |
+| v1.2 | 2026-11-25 | 为 M1 增加可核实的任务状态，记录 main push CI 失败与本地测试通过的差异，并明确先修复 CI、再完成 Codespaces 自动部署 | AI 辅助 |
 
 ---
 
