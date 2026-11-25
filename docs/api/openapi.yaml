@@ -1,0 +1,634 @@
+openapi: 3.1.0
+info:
+  title: TriageDeck API
+  version: 1.0.0
+  description: |
+    告警分诊台 + 统一审计。字段语义以 docs/02b-contract.md 为准，本文件是机器可读镜像。
+    除 /actuator/health 与静态资源外，所有路径要求 Bearer 认证（NFR-05）。
+    错误响应统一为 {code, message, traceId}。
+    注意：#10 GET /api/ai/digest 属二期（本期不实现，请求 404），故本文件不含该路径；
+    其契约位见 02b-contract.md §3 #10。
+servers:
+  - url: http://localhost:8080
+security:
+  - bearerAuth: []
+tags:
+  - name: alert
+  - name: audit
+  - name: ai
+  - name: auth
+
+paths:
+  /api/alerts/active:
+    get:
+      tags: [alert]
+      operationId: listActiveAlerts
+      summary: 活动告警列表（#1，权限 alert:read）
+      parameters:
+        - { name: severity, in: query, required: false, schema: { type: array, items: { $ref: '#/components/schemas/Severity' } } }
+        - { name: source, in: query, required: false, schema: { type: array, items: { type: string } } }
+        - { name: from, in: query, required: false, schema: { type: string, format: date-time } }
+        - { name: to, in: query, required: false, schema: { type: string, format: date-time } }
+        - { name: page, in: query, required: false, schema: { type: integer, minimum: 0, default: 0 } }
+        - { name: size, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        '200':
+          description: 按 severity 降序、同级按 lastSeenAt 倒序
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AlertPage' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/alerts/history:
+    get:
+      tags: [alert]
+      operationId: listAlertHistory
+      summary: 历史告警（#2，权限 alert:read；不提供导出）
+      parameters:
+        - { name: severity, in: query, required: false, schema: { type: array, items: { $ref: '#/components/schemas/Severity' } } }
+        - { name: source, in: query, required: false, schema: { type: array, items: { type: string } } }
+        - { name: clearedBy, in: query, required: false, schema: { type: string, maxLength: 128 } }
+        - { name: keyword, in: query, required: false, schema: { type: string, maxLength: 100 } }
+        - { name: from, in: query, required: false, schema: { type: string, format: date-time } }
+        - { name: to, in: query, required: false, schema: { type: string, format: date-time } }
+        - { name: page, in: query, required: false, schema: { type: integer, minimum: 0, default: 0 } }
+        - { name: size, in: query, required: false, schema: { type: integer, minimum: 1, default: 20, description: 超过 100 按 100 返回 } }
+      responses:
+        '200':
+          description: 按 clearedAt 倒序
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AlertHistoryPage' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/alerts/{id}:
+    get:
+      tags: [alert]
+      operationId: getAlertDetail
+      summary: 告警详情（#3，活动与历史通用）
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AlertDetailView' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/AlertNotFound' }
+
+  /api/alerts/{id}/clear:
+    post:
+      tags: [alert]
+      operationId: clearAlert
+      summary: 清除告警（#4，权限 alert:clear；重复清除 409）
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ClearRequest' }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClearResult' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/AlertNotFound' }
+        '409':
+          description: ALREADY_CLEARED
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+
+  /api/alerts/ingest:
+    post:
+      tags: [alert]
+      operationId: ingestAlert
+      summary: 告警上报（#5，权限 alert:ingest；同指纹合并）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/IngestRequest' }
+      responses:
+        '202':
+          description: 已接收（created=false 表示并入已有行）
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/IngestResult' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/audit/events:
+    get:
+      tags: [audit]
+      operationId: listAuditEvents
+      summary: 审计时间线（#6，权限 audit:read；from 必填）
+      parameters:
+        - { name: from, in: query, required: true, schema: { type: string, format: date-time } }
+        - { name: to, in: query, required: false, schema: { type: string, format: date-time } }
+        - { name: actor, in: query, required: false, schema: { type: string, maxLength: 128 } }
+        - { name: action, in: query, required: false, schema: { type: array, items: { $ref: '#/components/schemas/AuditAction' } } }
+        - { name: outcome, in: query, required: false, schema: { type: array, items: { $ref: '#/components/schemas/Outcome' } } }
+        - { name: page, in: query, required: false, schema: { type: integer, minimum: 0, default: 0 } }
+        - { name: size, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuditEventPage' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/audit/events/export:
+    get:
+      tags: [audit]
+      operationId: exportAuditEvents
+      summary: 审计 CSV 导出（#7，权限 audit:export；>50000 行 422）
+      parameters:
+        - { name: from, in: query, required: true, schema: { type: string, format: date-time } }
+        - { name: to, in: query, required: false, schema: { type: string, format: date-time } }
+        - { name: actor, in: query, required: false, schema: { type: string } }
+        - { name: action, in: query, required: false, schema: { type: array, items: { $ref: '#/components/schemas/AuditAction' } } }
+        - { name: outcome, in: query, required: false, schema: { type: array, items: { $ref: '#/components/schemas/Outcome' } } }
+        - { name: format, in: query, required: false, schema: { type: string, enum: [csv], default: csv } }
+      responses:
+        '200':
+          description: UTF-8 BOM 的 CSV，十列固定
+          content:
+            text/csv:
+              schema: { type: string }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422':
+          description: EXPORT_TOO_LARGE
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+
+  /api/ai/briefing/{id}:
+    post:
+      tags: [ai]
+      operationId: streamBriefing
+      summary: 告警简报 SSE（#8，权限 ai:briefing）
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: |
+            text/event-stream，事件名 delta / done / error。
+            delta: {"text":"..."}；done: {"briefing":Briefing,"degraded":boolean,"model":"...","promptVersion":"briefing-v1"}
+          content:
+            text/event-stream:
+              schema: { type: string }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/AlertNotFound' }
+        '503':
+          description: AI_UNAVAILABLE（首字节前失败）
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+
+  /api/ai/query:
+    post:
+      tags: [ai]
+      operationId: aiQuery
+      summary: 自然语言查询（#9，权限 ai:query；filter 只允许白名单键）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AiQueryRequest' }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiQueryResponse' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422':
+          description: AI_UNPARSEABLE
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '503':
+          description: AI_UNAVAILABLE
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+
+
+  /api/whoami:
+    get:
+      tags: [auth]
+      operationId: whoami
+      summary: 当前用户与权限（#11，权限 whoami:read）
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WhoAmI' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/_perm/check:
+    get:
+      tags: [auth]
+      operationId: checkPermission
+      summary: 权限判定调试端点（#12，仅非 prod；权限 _perm:check）
+      parameters:
+        - { name: obj, in: query, required: true, schema: { type: string, enum: [alert, audit, ai, whoami, _perm] } }
+        - { name: act, in: query, required: true, schema: { type: string, enum: [read, ingest, clear, export, briefing, query, digest, check] } }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PermCheck' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: prod 下不存在该端点
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    ValidationFailed:
+      description: VALIDATION_FAILED
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    Unauthorized:
+      description: UNAUTHORIZED（不产生审计）
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    Forbidden:
+      description: ACCESS_DENIED（产生审计 DENIED）
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    AlertNotFound:
+      description: ALERT_NOT_FOUND
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+
+  schemas:
+    ApiError:
+      type: object
+      required: [code, message, traceId]
+      properties:
+        code:
+          type: string
+          enum:
+            - VALIDATION_FAILED
+            - UNAUTHORIZED
+            - ACCESS_DENIED
+            - ALERT_NOT_FOUND
+            - NOT_FOUND
+            - ALREADY_CLEARED
+            - EXPORT_TOO_LARGE
+            - AI_UNPARSEABLE
+            - AI_UNAVAILABLE
+            - INTERNAL_ERROR
+            - METHOD_NOT_ALLOWED
+        message: { type: string }
+        traceId: { type: string }
+
+    Severity:
+      type: string
+      enum: [CRITICAL, HIGH, MEDIUM, LOW, INFO]
+
+    Outcome:
+      type: string
+      enum: [SUCCESS, DENIED, FAILED]
+
+    ActorType:
+      type: string
+      enum: [USER, SYSTEM, SERVICE]
+
+    AuditAction:
+      type: string
+      enum: [LOGIN, LOGOUT, LOGIN_FAILED, ALERT_CLEARED, ACCESS_DENIED]
+
+    TargetType:
+      type: string
+      enum: [ALERT, AUTH, ENDPOINT]
+
+    ClearMode:
+      type: string
+      enum: [MANUAL, SYSTEM]
+
+    Ingress:
+      type: string
+      enum: [HTTP, KAFKA]
+
+    PageMeta:
+      type: object
+      required: [total, page, size]
+      properties:
+        total: { type: integer, minimum: 0 }
+        page: { type: integer, minimum: 0 }
+        size: { type: integer, minimum: 1, maximum: 100 }
+
+
+    AlertView:
+      type: object
+      required: [id, severity, source, type, resourceId, eventCode, message, firstSeenAt, lastSeenAt, occurrenceCount, fingerprint]
+      properties:
+        id: { type: string, format: uuid }
+        severity: { $ref: '#/components/schemas/Severity' }
+        source: { type: string }
+        type: { type: string }
+        resourceId: { type: string }
+        eventCode: { type: string, description: 归一化后可能为空串 }
+        message: { type: string }
+        firstSeenAt: { type: string, format: date-time }
+        lastSeenAt: { type: string, format: date-time }
+        occurrenceCount: { type: integer, minimum: 1 }
+        fingerprint: { type: string, pattern: '^[0-9a-f]{64}$' }
+
+    AlertHistoryView:
+      allOf:
+        - $ref: '#/components/schemas/AlertView'
+        - type: object
+          required: [clearedAt, clearedBy, clearMode]
+          properties:
+            clearedAt: { type: string, format: date-time }
+            clearedBy: { type: string }
+            clearedReason: { type: [string, 'null'] }
+            clearMode: { $ref: '#/components/schemas/ClearMode' }
+
+    AlertPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/AlertView' }
+
+    AlertHistoryPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/AlertHistoryView' }
+
+    AlertEventView:
+      type: object
+      required: [id, occurredAt, severity, message, ingress]
+      properties:
+        id: { type: string, format: uuid }
+        occurredAt: { type: string, format: date-time }
+        severity: { $ref: '#/components/schemas/Severity' }
+        message: { type: string }
+        ingress: { $ref: '#/components/schemas/Ingress' }
+
+    MergeFields:
+      type: object
+      required: [source, type, resourceId, eventCode]
+      properties:
+        source: { type: string }
+        type: { type: string }
+        resourceId: { type: string }
+        eventCode: { type: string }
+
+    ClearedInfo:
+      type: object
+      required: [clearedAt, clearedBy, clearMode]
+      properties:
+        clearedAt: { type: string, format: date-time }
+        clearedBy: { type: string }
+        clearedReason: { type: [string, 'null'] }
+        clearMode: { $ref: '#/components/schemas/ClearMode' }
+
+    AlertDetailView:
+      type: object
+      required: [id, status, severity, source, type, resourceId, eventCode, message,
+                 firstSeenAt, lastSeenAt, occurrenceCount, fingerprint,
+                 mergeFields, mergeRule, latestPayload, events, cleared]
+      properties:
+        id: { type: string, format: uuid }
+        status: { type: string, enum: [ACTIVE, CLEARED] }
+        severity: { $ref: '#/components/schemas/Severity' }
+        source: { type: string }
+        type: { type: string }
+        resourceId: { type: string }
+        eventCode: { type: string }
+        message: { type: string }
+        firstSeenAt: { type: string, format: date-time }
+        lastSeenAt: { type: string, format: date-time }
+        occurrenceCount: { type: integer, minimum: 1 }
+        fingerprint: { type: string }
+        mergeFields: { $ref: '#/components/schemas/MergeFields' }
+        mergeRule: { type: string }
+        latestPayload: { type: object, additionalProperties: true }
+        events:
+          type: array
+          items: { $ref: '#/components/schemas/AlertEventView' }
+        cleared:
+          oneOf:
+            - { $ref: '#/components/schemas/ClearedInfo' }
+            - { type: 'null' }
+
+    IngestRequest:
+      type: object
+      required: [source, type, resourceId, severity, message, occurredAt]
+      properties:
+        source: { type: string, maxLength: 128 }
+        type: { type: string, maxLength: 128 }
+        resourceId: { type: string, maxLength: 128 }
+        eventCode: { type: string, maxLength: 128 }
+        severity: { $ref: '#/components/schemas/Severity' }
+        message: { type: string, maxLength: 4000 }
+        occurredAt: { type: string, format: date-time }
+        payload: { type: object, additionalProperties: true }
+
+    IngestResult:
+      type: object
+      required: [id, created, occurrenceCount, severity, lastSeenAt]
+      properties:
+        id: { type: string, format: uuid }
+        created: { type: boolean }
+        occurrenceCount: { type: integer, minimum: 1 }
+        severity: { $ref: '#/components/schemas/Severity' }
+        lastSeenAt: { type: string, format: date-time }
+
+    ClearRequest:
+      type: object
+      properties:
+        reason: { type: [string, 'null'], maxLength: 500 }
+
+    ClearResult:
+      type: object
+      required: [id, clearedAt, clearedBy]
+      properties:
+        id: { type: string, format: uuid }
+        clearedAt: { type: string, format: date-time }
+        clearedBy: { type: string }
+
+
+    AuditEventView:
+      type: object
+      required: [id, occurredAt, actor, actorType, action, targetType, outcome, source, detail]
+      properties:
+        id: { type: string, format: uuid }
+        occurredAt: { type: string, format: date-time }
+        actor: { type: string }
+        actorType: { $ref: '#/components/schemas/ActorType' }
+        action: { $ref: '#/components/schemas/AuditAction' }
+        targetType: { $ref: '#/components/schemas/TargetType' }
+        targetId: { type: [string, 'null'] }
+        outcome: { $ref: '#/components/schemas/Outcome' }
+        source: { type: string, enum: [APP, KEYCLOAK] }
+        clientNet: { type: [string, 'null'] }
+        traceId: { type: [string, 'null'] }
+        detail: { type: object, additionalProperties: true }
+
+    AuditEventPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [items, eventsCollected, eventsDisabled, collectorLastRunAt]
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/AuditEventView' }
+            eventsCollected: { type: boolean }
+            eventsDisabled: { type: boolean }
+            collectorLastRunAt: { type: [string, 'null'], format: date-time }
+
+    AiQueryRequest:
+      type: object
+      required: [question]
+      properties:
+        question: { type: string, minLength: 1, maxLength: 500 }
+        limit: { type: integer, minimum: 1, maximum: 50, default: 20 }
+
+    AiFilter:
+      type: object
+      description: 只允许这 7 个键；出现其他键一律拒绝
+      properties:
+        scope: { type: string, enum: [active, history] }
+        from: { type: [string, 'null'], format: date-time }
+        to: { type: [string, 'null'], format: date-time }
+        severities:
+          type: array
+          items: { $ref: '#/components/schemas/Severity' }
+        sources:
+          type: array
+          items: { type: string }
+        keyword: { type: [string, 'null'], maxLength: 100 }
+        clearedBy: { type: [string, 'null'] }
+
+    AiQueryItem:
+      allOf:
+        - $ref: '#/components/schemas/AlertView'
+        - type: object
+          properties:
+            clearedAt: { type: string, format: date-time }
+            clearedBy: { type: string }
+            clearedReason: { type: [string, 'null'] }
+            clearMode: { $ref: '#/components/schemas/ClearMode' }
+
+    AiQueryResponse:
+      type: object
+      required: [filter, items, total, page, size, explanation, droppedFields]
+      properties:
+        filter: { $ref: '#/components/schemas/AiFilter' }
+        items:
+          type: array
+          description: scope=active 时只有 AlertView 字段；history 时含清除字段
+          items: { $ref: '#/components/schemas/AiQueryItem' }
+        total: { type: integer, minimum: 0 }
+        page: { type: integer, minimum: 0 }
+        size: { type: integer, minimum: 1, maximum: 100 }
+        explanation: { type: string }
+        droppedFields:
+          type: array
+          items: { type: string }
+
+    BriefingItem:
+      type: object
+      required: [text, confidence, evidenceEventIds]
+      properties:
+        text: { type: string }
+        confidence: { type: number, minimum: 0, maximum: 1 }
+        priority: { type: string, enum: [HIGH, MEDIUM, LOW] }
+        evidenceEventIds:
+          type: array
+          items: { type: string, format: uuid }
+
+    Briefing:
+      type: object
+      properties:
+        impact:
+          type: array
+          items: { $ref: '#/components/schemas/BriefingItem' }
+        hypotheses:
+          type: array
+          items: { $ref: '#/components/schemas/BriefingItem' }
+        actions:
+          type: array
+          items: { $ref: '#/components/schemas/BriefingItem' }
+        summary:
+          type: string
+          description: 仅 degraded=true 时出现
+
+    Permission:
+      type: object
+      required: [obj, act]
+      properties:
+        obj: { type: string }
+        act: { type: string }
+
+    WhoAmI:
+      type: object
+      required: [username, subject, roles, permissions]
+      properties:
+        username: { type: string }
+        subject: { type: string }
+        roles:
+          type: array
+          items: { type: string, enum: [admin, operator, viewer, service] }
+        permissions:
+          type: array
+          items: { $ref: '#/components/schemas/Permission' }
+
+    PermCheck:
+      type: object
+      required: [allowed, roles, obj, act]
+      properties:
+        allowed: { type: boolean }
+        roles:
+          type: array
+          items: { type: string }
+        obj: { type: string }
+        act: { type: string }
+

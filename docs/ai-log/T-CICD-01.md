@@ -1,0 +1,3 @@
+- 读了什么：AGENTS.md §2、§8；docs/plan-implementation.md M1、§3.1–§3.2；CI workflow 弃用告警；docs/ai-log/README.md。
+- 一次通过还是返工几次：1 次修订；升级 Actions 至 v5 后，`./gradlew test --no-daemon` 与 SnakeYAML 解析通过。
+- 人工改了哪里：无；更新 CI workflow 的 checkout/setup-java 版本。

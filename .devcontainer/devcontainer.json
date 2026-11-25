@@ -1,0 +1,34 @@
+{
+  "name": "TriageDeck - Java 21 + Gradle + Docker",
+  "image": "mcr.microsoft.com/devcontainers/java:21",
+  "mounts": [
+    "source=triagedeck-copilot-data,target=/home/vscode/.copilot,type=volume"
+  ],
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "moby": false,
+      "dockerDashComposeVersion": "v2"
+    },
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "lts"
+    },
+    "ghcr.io/devcontainers/features/git-lfs:1": {
+      "autoPull": false
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "vscjava.vscode-java-pack",
+        "vscjava.vscode-gradle",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "saoudrizwan.claude-dev"
+      ]
+    }
+  },
+  "runArgs": ["--group-add", "docker"],
+  "postCreateCommand": "sudo chown -R vscode:vscode /home/vscode/.copilot && bash .devcontainer/persist-copilot.sh",
+  "postStartCommand": "bash .devcontainer/persist-copilot.sh && bash scripts/setup-env.sh",
+  "remoteUser": "vscode"
+}
