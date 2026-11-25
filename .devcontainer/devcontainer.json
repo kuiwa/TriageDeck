@@ -24,7 +24,8 @@
         "dbaeumer.vscode-eslint",
         "esbenp.prettier-vscode",
         "saoudrizwan.claude-dev",
-        "mechatroner.rainbow-csv"
+        "mechatroner.rainbow-csv",
+        "github.vscode-github-actions"
       ]
     }
   },
