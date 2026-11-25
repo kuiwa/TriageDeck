@@ -70,8 +70,8 @@ M1 当前状态：T01 和 CI 完成；CD 已验证推送后端镜像，但尚未
 
 | 任务 | 内容 | 验收 | 完成日期 / 环境 |
 |------|------|------|----------------|
-| T11 | AI 简报 SSE 流式，只读端口，mock 降级 | 首字节 <2s，模型不可达返回 503 | - |
-| T12 | AI 自然语言查询，白名单过滤，不生成 SQL | 返回 `filter` JSON，`droppedFields` 透明 | - |
+| T11 | AI 简报 SSE 流式，只读端口，mock 降级 | 首字节 <2s，模型不可达返回 503 | 2026-11-25 / DELL |
+| T12 | AI 自然语言查询，白名单过滤，不生成 SQL | 返回 `filter` JSON，`droppedFields` 透明 | 2026-11-25 / DELL |
 | T13 | 前端 React+Vite+TanStack Query，OIDC 内存 token，类型生成与对齐 | 首屏 2s，`npm run typecheck` 通过 | 2026-11-25 / DELL |
 
 ---
