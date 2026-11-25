@@ -23,7 +23,8 @@
         "vscjava.vscode-gradle",
         "dbaeumer.vscode-eslint",
         "esbenp.prettier-vscode",
-        "saoudrizwan.claude-dev"
+        "saoudrizwan.claude-dev",
+        "mechatroner.rainbow-csv"
       ]
     }
   },
