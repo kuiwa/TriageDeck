@@ -56,6 +56,7 @@ M1 当前状态：T01 和 CI 完成；CD 已验证推送后端镜像，但尚未
 | T06 | alert | 清除告警（`alerts_active → alerts_history` 原子移动） | 单事务两语句，并发清除一成一败，历史 1 行 | 2026-11-25 / DELL |
 | T07 | alert | 历史告警查询 | `cleared_at` 倒序，支持按 `clearedBy`/`source` 筛选 | 2026-11-25 / DELL |
 | T08 | audit | 审计写入（`@Auditable` 切面、403 审计、Keycloak 采集） | 登录/登出/越权均有审计记录，401 不审计 | 2026-11-25 / DELL |
+| T09 | audit | Keycloak 采集 + 审计页 | 10 万行查询 <1s，CSV 表头中文，IP 脱敏 | 进行中 |
 | T09 | audit | 审计列表、导出 CSV、脱敏 | 10 万行查询 <1s，CSV 表头中文，IP 脱敏 | - |
 | T10 | platform/notify | Kafka 两链路，DLT，事务后发布，通知落库 | 回滚不发消息，DLT 后人工可排查 | - |
 
