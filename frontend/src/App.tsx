@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { userManager } from "./auth/userManager";
 import { getWhoami, type WhoAmI } from "./shared/api/apiClient";
@@ -61,6 +61,7 @@ export function App() {
       }
       return null;
     },
+    activeTab === "active", // 仅当活动告警tab激活时启用
   );
 
   // token 失效且无法静默续签时，重定向到 Keycloak 重新登录
@@ -85,7 +86,21 @@ export function App() {
       }
       return null;
     },
+    activeTab === "history", // 仅当历史告警tab激活时启用
   );
+
+  // 切换tab时刷新对应的数据
+  const previousTabRef = useRef<"active" | "history">(activeTab);
+  useEffect(() => {
+    if (previousTabRef.current !== activeTab && user?.access_token) {
+      if (activeTab === "active") {
+        void alerts.refetch();
+      } else if (activeTab === "history") {
+        void historyAlerts.refetch();
+      }
+    }
+    previousTabRef.current = activeTab;
+  }, [activeTab, user?.access_token]);
 
   const whoami = useQuery<WhoAmI>({
     queryKey: ["whoami"],

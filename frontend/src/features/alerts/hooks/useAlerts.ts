@@ -98,6 +98,7 @@ export function useAlerts(
   accessToken: string | null,
   params: AlertsQueryParams = {},
   onUnauthorized?: () => Promise<string | null>,
+  enabled: boolean = true,
 ) {
   return useQuery({
     queryKey: ["alerts", "active", params],
@@ -114,9 +115,9 @@ export function useAlerts(
         throw error;
       }
     },
-    enabled: !!accessToken,
+    enabled: !!accessToken && enabled,
     staleTime: 10_000,
-    refetchInterval: 30_000,
+    refetchInterval: enabled ? 30_000 : false,
   });
 }
 
@@ -124,6 +125,7 @@ export function useHistoryAlerts(
   accessToken: string | null,
   params: AlertsQueryParams = {},
   onUnauthorized?: () => Promise<string | null>,
+  enabled: boolean = true,
 ) {
   const queryClient = useQueryClient();
 
@@ -142,8 +144,8 @@ export function useHistoryAlerts(
         throw error;
       }
     },
-    enabled: !!accessToken,
+    enabled: !!accessToken && enabled,
     staleTime: 10_000,
-    refetchInterval: 30_000,
+    refetchInterval: enabled ? 30_000 : false,
   });
 }
