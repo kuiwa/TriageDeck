@@ -245,6 +245,50 @@ textarea:focus-visible {
   font-size: 14px;
 }
 
+.tab-group {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface-soft);
+  box-shadow: inset 0 1px 2px rgb(23 43 69 / 5%);
+}
+
+.tab-button {
+  min-height: 36px;
+  padding: 6px 18px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-muted);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.tab-button:hover {
+  background: rgb(23 43 69 / 6%);
+  color: var(--color-brand-strong);
+}
+
+.tab-button.tab-active {
+  background: var(--color-brand);
+  color: #fff;
+  box-shadow: 0 3px 8px rgb(23 43 69 / 22%);
+}
+
+.tab-button.tab-active:hover {
+  background: var(--color-brand-strong);
+  color: #fff;
+}
+
 .live-indicator {
   display: inline-flex;
   flex: 0 0 auto;
@@ -563,6 +607,16 @@ textarea:focus-visible {
   .page-description {
     max-width: 42ch;
     font-size: 13px;
+  }
+
+  .tab-group {
+    align-self: flex-start;
+  }
+
+  .tab-button {
+    min-height: 34px;
+    padding: 5px 14px;
+    font-size: 12px;
   }
 
   .alert-card-header {
