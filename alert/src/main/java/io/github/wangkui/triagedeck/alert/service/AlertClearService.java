@@ -57,7 +57,7 @@ public class AlertClearService {
                 active.firstSeenAt(),
                 active.lastSeenAt(),
                 active.occurrenceCount(),
-                active.lastSeenAt(), // latest_payload can be empty for clear
+                "{}", // latest_payload: empty JSON object for clear
                 active.id(), // latest_event_id - reuse alert id for now
                 securityContext.getCurrentUser(),
                 traceIds.current(),
