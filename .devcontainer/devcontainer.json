@@ -25,7 +25,8 @@
         "esbenp.prettier-vscode",
         "saoudrizwan.claude-dev",
         "mechatroner.rainbow-csv",
-        "github.vscode-github-actions"
+        "github.vscode-github-actions",
+        "cweijan.vscode-postgresql-client2"
       ]
     }
   },
