@@ -13,15 +13,29 @@ import java.util.Optional;
 @Repository
 public class AlertHistoryRepository {
 
-    private static final String INSERT_CLEARED_SQL =
-            "INSERT INTO alerts_history "
-            + "(id, fingerprint, severity, source, type, resource_id, event_code, "
-            + "message, first_seen_at, last_seen_at, occurrence_count, latest_payload, "
-            + "latest_event_id, cleared_at, cleared_by, cleared_reason, clear_mode) "
-            + "VALUES "
-            + "(:id, :fingerprint, :severity, :source, :type, :resourceId, :eventCode, "
-            + ":message, :firstSeenAt, :lastSeenAt, :occurrenceCount, :latestPayload, "
-            + ":latestEventId, now(), :clearedBy, :clearedReason, :clearMode)";
+    private static final String CLEAR_SQL = """
+            with moved as (
+              insert into alerts_history (
+                id, fingerprint, source, type, resource_id, event_code, severity,
+                message, first_seen_at, last_seen_at, occurrence_count,
+                latest_payload, latest_event_id, created_at, updated_at,
+                cleared_at, cleared_by, cleared_reason, clear_mode
+              )
+              select a.id, a.fingerprint, a.source, a.type, a.resource_id, a.event_code, a.severity,
+                     a.message, a.first_seen_at, a.last_seen_at, a.occurrence_count,
+                     a.latest_payload, a.latest_event_id, a.created_at, a.updated_at,
+                     now(), :clearedBy, :clearedReason, 'MANUAL'
+              from alerts_active a
+              where a.id = :id
+              on conflict (id) do nothing
+              returning id
+            )
+            delete from alerts_active a using moved m where a.id = m.id
+            returning a.id
+            """;
+
+    private static final String EXISTS_BY_ID_SQL =
+            "SELECT count(*) FROM alerts_history WHERE id = :id";
 
     private static final String SELECT_BY_ID_SQL =
             "SELECT id, severity, source, type, resource_id, event_code, message, "
@@ -35,48 +49,26 @@ public class AlertHistoryRepository {
         this.jdbc = jdbc;
     }
 
-    public boolean insertCleared(
-            UUID id,
-            String fingerprint,
-            String severity,
-            String source,
-            String type,
-            String resourceId,
-            String eventCode,
-            String message,
-            Object firstSeenAt,
-            Object lastSeenAt,
-            long occurrenceCount,
-            Object latestPayload,
-            UUID latestEventId,
-            String actor,
-            String traceId,
-            String reason) {
-
+    /**
+     * Atomically moves the active alert to history (LLD 02-alert §3.2).
+     * Returns true when a row was moved; false when nothing moved
+     * (id absent from active or already present in history).
+     */
+    public boolean clear(UUID id, String actor, String reason) {
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("id", id)
-                .addValue("fingerprint", fingerprint)
-                .addValue("severity", severity)
-                .addValue("source", source)
-                .addValue("type", type)
-                .addValue("resourceId", resourceId)
-                .addValue("eventCode", eventCode)
-                .addValue("message", message)
-                .addValue("firstSeenAt", firstSeenAt)
-                .addValue("lastSeenAt", lastSeenAt)
-                .addValue("occurrenceCount", occurrenceCount)
-                .addValue("latestPayload", latestPayload != null ? latestPayload : "{}")
-                .addValue("latestEventId", latestEventId)
-                .addValue("clearedBy", actor != null ? actor : "SYSTEM")
-                .addValue("clearedReason", reason != null ? reason : "")
-                .addValue("clearMode", "MANUAL");
+                .addValue("clearedBy", actor != null && !actor.isBlank() ? actor : "SYSTEM")
+                .addValue("clearedReason", reason);
 
-        try {
-            jdbc.update(INSERT_CLEARED_SQL, params);
-            return true;
-        } catch (Exception e) {
-            return false;
-        }
+        List<UUID> moved = jdbc.query(CLEAR_SQL, params,
+                (rs, rowNum) -> rs.getObject("id", UUID.class));
+        return !moved.isEmpty();
+    }
+
+    public boolean existsById(UUID id) {
+        Long count = jdbc.queryForObject(EXISTS_BY_ID_SQL,
+                new MapSqlParameterSource("id", id), Long.class);
+        return count != null && count > 0;
     }
 
     public Optional<AlertView> findById(UUID id) {
