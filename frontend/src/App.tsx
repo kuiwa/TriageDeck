@@ -4,7 +4,8 @@ import { userManager } from "./auth/userManager";
 import { getWhoami, type WhoAmI } from "./shared/api/apiClient";
 import type { User } from "oidc-client-ts";
 import { AlertTable } from "./features/alerts/components/AlertTable";
-import { useAlerts } from "./features/alerts/hooks/useAlerts";
+import { HistoryTable } from "./features/alerts/components/HistoryTable";
+import { useAlerts, clearAlert, useHistoryAlerts } from "./features/alerts/hooks/useAlerts";
 
 let authenticationInitialization: Promise<User | null> | undefined;
 
@@ -67,12 +68,43 @@ export function App() {
     }
   }, [alerts.isError, alerts.error]);
 
+  const historyAlerts = useHistoryAlerts(
+    user?.access_token ?? null,
+    { page: 0, size: 20 },
+    async () => {
+      try {
+        const renewedUser = await userManager.signinSilent();
+        if (renewedUser && !renewedUser.expired) {
+          setUser(renewedUser);
+          return renewedUser.access_token;
+        }
+      } catch {
+        // 静默续签失败，由下方 useEffect 处理跳转
+      }
+      return null;
+    },
+  );
+
   const whoami = useQuery<WhoAmI>({
     queryKey: ["whoami"],
     queryFn: () => getWhoami(user?.access_token ?? ""),
     enabled: ready && Boolean(user?.access_token),
     retry: false,
   });
+
+  const canClear = whoami.data?.permissions.some(
+    (p) => p.obj === "alert" && p.act === "clear",
+  ) ?? false;
+
+  const handleClear = async (alertId: string, reason?: string | null) => {
+    const token = user?.access_token;
+    if (!token) return;
+    const success = await clearAlert(token, alertId, reason ?? null);
+    if (success) {
+      await alerts.refetch();
+      await historyAlerts.refetch();
+    }
+  };
 
   if (authError) {
     return (
@@ -157,6 +189,15 @@ export function App() {
         total={alerts.data?.total ?? 0}
         page={alerts.data?.page ?? 0}
         size={alerts.data?.size ?? 20}
+        canClear={canClear}
+        onClear={handleClear}
+      />
+
+      <HistoryTable
+        items={historyAlerts.data?.items ?? []}
+        total={historyAlerts.data?.total ?? 0}
+        page={historyAlerts.data?.page ?? 0}
+        size={historyAlerts.data?.size ?? 20}
       />
 
       {whoami.data && (

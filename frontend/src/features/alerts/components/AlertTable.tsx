@@ -6,10 +6,63 @@ interface AlertsProps {
   total: number;
   page: number;
   size: number;
+  canClear: boolean;
+  onClear: (alertId: string, reason?: string | null) => Promise<void>;
 }
 
+interface ClearDialogProps {
+  open: boolean;
+  onClose: () => void;
+  onConfirm: (reason: string | null) => void;
+  alertId: string;
+}
 
-export function AlertTable({ items, total, page, size }: AlertsProps) {
+function ClearDialog({ open, onClose, onConfirm, alertId }: ClearDialogProps) {
+  const [reason, setReason] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+
+  if (!open) return null;
+
+  return (
+    <div className="dialog-overlay" onClick={onClose}>
+      <div className="dialog" onClick={(e) => e.stopPropagation()}>
+        <h3 className="dialog-title">清除告警</h3>
+        <p className="dialog-caption">告警 ID：{alertId}</p>
+        <label className="dialog-label">清除原因（可选）</label>
+        <textarea
+          className="dialog-textarea"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="输入清除原因…"
+        />
+        <div className="dialog-actions">
+          <button className="button button-quiet" onClick={onClose} disabled={loading}>
+            取消
+          </button>
+          <button
+            className="button button-danger"
+            onClick={() => {
+              setLoading(true);
+              onConfirm(reason || null);
+            }}
+            disabled={loading}
+          >
+            {loading ? "清除中…" : "确认清除"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function AlertTable({
+  items,
+  total,
+  page,
+  size,
+  canClear,
+  onClear,
+}: AlertsProps) {
   const severityClass = (severity: string): string => {
     switch (severity) {
       case "CRITICAL": return "severity-critical";
@@ -18,6 +71,32 @@ export function AlertTable({ items, total, page, size }: AlertsProps) {
       case "LOW": return "severity-low";
       case "INFO": return "severity-info";
       default: return "severity-default";
+    }
+  };
+
+  const [clearDialog, setClearDialog] = React.useState<{
+    open: boolean;
+    alertId: string;
+  } | null>(null);
+  const [clearError, setClearError] = React.useState<string | null>(null);
+
+  const handleClearClick = async (alertId: string) => {
+    setClearError(null);
+    try {
+      await onClear(alertId, null);
+    } catch (error) {
+      setClearError(error instanceof Error ? error.message : "清除失败");
+    }
+  };
+
+  const handleConfirmClear = async (reason: string | null) => {
+    if (!clearDialog) return;
+    setClearError(null);
+    try {
+      await onClear(clearDialog.alertId, reason);
+      setClearDialog(null);
+    } catch (error) {
+      setClearError(error instanceof Error ? error.message : "清除失败");
     }
   };
 
@@ -44,12 +123,13 @@ export function AlertTable({ items, total, page, size }: AlertsProps) {
               <th scope="col">告警内容</th>
               <th scope="col">最近发生</th>
               <th scope="col">发生次数</th>
+              {canClear && <th scope="col">操作</th>}
             </tr>
           </thead>
           <tbody>
             {items.length === 0 ? (
               <tr>
-                <td colSpan={8} className="empty-state">
+                <td colSpan={canClear ? 9 : 8} className="empty-state">
                   当前没有活动告警，状态良好。
                 </td>
               </tr>
@@ -70,12 +150,36 @@ export function AlertTable({ items, total, page, size }: AlertsProps) {
                   <td className="cell-message">{alert.message}</td>
                   <td className="cell-mono">{alert.lastSeenAt}</td>
                   <td className="cell-mono">{alert.occurrenceCount}</td>
+                  {canClear && (
+                    <td className="cell-action">
+                      <button
+                        className="button button-quiet button-small"
+                        onClick={() => {
+                          setClearDialog({ open: true, alertId: alert.id });
+                        }}
+                        disabled={!!clearDialog}
+                      >
+                        清除
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))
             )}
           </tbody>
         </table>
       </div>
+      {clearDialog && (
+        <ClearDialog
+          open
+          alertId={clearDialog.alertId}
+          onClose={() => setClearDialog(null)}
+          onConfirm={handleConfirmClear}
+        />
+      )}
+      {clearError && (
+        <div className="error-toast">{clearError}</div>
+      )}
     </section>
   );
 }
