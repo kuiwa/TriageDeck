@@ -29,6 +29,8 @@ export function App() {
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
   const [authError, setAuthError] = useState(false);
+  const [activeTab, setActiveTab] = useState<"active" | "history">("active");
+  const [clearMessage, setClearMessage] = useState<string | null>(null);
   useEffect(() => {
     let active = true;
     void initializeAuthentication()
@@ -99,8 +101,14 @@ export function App() {
   const handleClear = async (alertId: string, reason?: string | null) => {
     const token = user?.access_token;
     if (!token) return;
-    const success = await clearAlert(token, alertId, reason ?? null);
-    if (success) {
+    setClearMessage(null);
+    const result = await clearAlert(token, alertId, reason ?? null);
+    if (result.alreadyCleared) {
+      setClearMessage("该告警已被其他用户清除");
+      await alerts.refetch();
+      await historyAlerts.refetch();
+    } else if (result.success) {
+      setClearMessage("告警已清除");
       await alerts.refetch();
       await historyAlerts.refetch();
     }
@@ -181,24 +189,47 @@ export function App() {
           <h2 className="page-title" id="dashboard-title">告警总览</h2>
           <p className="page-description">集中查看并跟进当前处于活动状态的告警。</p>
         </div>
-        <span className="live-indicator">活动告警</span>
+        <div className="tab-group" role="tablist" aria-label="告警标签页">
+          <button
+            role="tab"
+            aria-selected={activeTab === "active"}
+            className={`tab-button ${activeTab === "active" ? "tab-active" : ""}`}
+            onClick={() => setActiveTab("active")}
+          >
+            活动告警
+          </button>
+          <button
+            role="tab"
+            aria-selected={activeTab === "history"}
+            className={`tab-button ${activeTab === "history" ? "tab-active" : ""}`}
+            onClick={() => setActiveTab("history")}
+          >
+            历史告警
+          </button>
+        </div>
       </section>
 
-      <AlertTable
-        items={alerts.data?.items ?? []}
-        total={alerts.data?.total ?? 0}
-        page={alerts.data?.page ?? 0}
-        size={alerts.data?.size ?? 20}
-        canClear={canClear}
-        onClear={handleClear}
-      />
+      {clearMessage && (
+        <div className="clear-message">{clearMessage}</div>
+      )}
 
-      <HistoryTable
-        items={historyAlerts.data?.items ?? []}
-        total={historyAlerts.data?.total ?? 0}
-        page={historyAlerts.data?.page ?? 0}
-        size={historyAlerts.data?.size ?? 20}
-      />
+      {activeTab === "active" ? (
+        <AlertTable
+          items={alerts.data?.items ?? []}
+          total={alerts.data?.total ?? 0}
+          page={alerts.data?.page ?? 0}
+          size={alerts.data?.size ?? 20}
+          canClear={canClear}
+          onClear={handleClear}
+        />
+      ) : (
+        <HistoryTable
+          items={historyAlerts.data?.items ?? []}
+          total={historyAlerts.data?.total ?? 0}
+          page={historyAlerts.data?.page ?? 0}
+          size={historyAlerts.data?.size ?? 20}
+        />
+      )}
 
       {whoami.data && (
         <section className="profile-card" aria-labelledby="profile-title">

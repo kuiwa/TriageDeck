@@ -37,11 +37,16 @@ async function fetchAlerts(
   return response.json();
 }
 
+export interface ClearAlertResult {
+  success: boolean;
+  alreadyCleared: boolean;
+}
+
 export async function clearAlert(
   accessToken: string,
   alertId: string,
   reason?: string | null,
-): Promise<boolean> {
+): Promise<ClearAlertResult> {
   const searchParams = new URLSearchParams();
   if (reason) searchParams.set("reason", reason);
 
@@ -53,10 +58,12 @@ export async function clearAlert(
   });
 
   if (response.status === 401) throw new Error("UNAUTHORIZED");
-  if (response.status === 409) return false; // already cleared
+  if (response.status === 409) {
+    return { success: false, alreadyCleared: true };
+  }
   if (!response.ok) throw new Error("CLEAR_ALERT_FAILED");
 
-  return true;
+  return { success: true, alreadyCleared: false };
 }
 
 async function fetchHistoryAlerts(
