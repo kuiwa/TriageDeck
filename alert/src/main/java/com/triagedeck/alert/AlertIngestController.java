@@ -1,0 +1,31 @@
+package com.triagedeck.alert.api;
+
+import com.triagedeck.alert.domain.Ingress;
+import com.triagedeck.alert.service.AlertIngestService;
+import com.triagedeck.platform.security.RequirePermission;
+
+import jakarta.validation.Valid;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+public class AlertIngestController {
+
+    private final AlertIngestService ingestService;
+
+    public AlertIngestController(AlertIngestService ingestService) {
+        this.ingestService = ingestService;
+    }
+
+    @PostMapping("/api/alerts/ingest")
+    @RequirePermission(obj = "alert", act = "ingest")
+    public ResponseEntity<AlertIngestReceipt> ingest(
+            @Valid @RequestBody AlertIngestRequest request) {
+        AlertIngestReceipt receipt =
+                AlertIngestReceipt.from(ingestService.ingest(request.toCommand(), Ingress.HTTP));
+        return ResponseEntity.accepted().body(receipt);
+    }
+}

@@ -125,7 +125,7 @@ platform → 无业务依赖（注解、事件总线、Kafka、错误、ID、时
 
 | 项 | 约定 |
 |---|---|
-| 包名 | `io.github.<handle>.triagedeck.<module>.<layer>`，layer ∈ `api/service/domain/repo/config` |
+| 包名 | `com.triagedeck.<module>.<layer>`，layer ∈ `api/service/domain/repo/config` |
 | DTO | `record`；后缀 `Request` / `View` / `Detail`；放在 `api` 包 |
 | 实体 | JPA `@Entity`，放 `domain`；**不直接返回给前端** |
 | ID | `UUID`，主键名 `id` |

@@ -4,7 +4,7 @@ plugins {
     id("java-library")
 }
 
-group = "io.github.wangkui.triagedeck"
+group = "com.triagedeck"
 version = "0.1.0"
 
 dependencies {
