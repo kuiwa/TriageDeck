@@ -1,6 +1,8 @@
 package io.github.wangkui.triagedeck.audit;
 
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 public class AuditDetailSanitizer {
@@ -13,7 +15,7 @@ public class AuditDetailSanitizer {
         if (detail == null) {
             return null;
         }
-        java.util.Map<String, Object> result = java.util.HashMap.newHashMap(detail);
+        java.util.Map<String, Object> result = new HashMap<>(detail);
         result.entrySet().removeIf(entry -> {
             String key = entry.getKey().toLowerCase();
             return BLACKLIST_KEYS.contains(key) || 

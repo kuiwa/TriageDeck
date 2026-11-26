@@ -11,7 +11,9 @@ import java.util.Map;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import io.github.wangkui.triagedeck.platform.audit.AccessDeniedAuditPort;
 import io.github.wangkui.triagedeck.platform.security.RequirePermission;
+import io.github.wangkui.triagedeck.platform.trace.TraceIds;
 import io.github.wangkui.triagedeck.security.api.PermissionCheckController;
 import io.github.wangkui.triagedeck.security.api.WhoamiController;
 import io.github.wangkui.triagedeck.security.auth.PermissionService;
@@ -80,6 +82,19 @@ class PermissionWebSecurityTest {
     }
 
     @Test
+    void should_not_return_401_for_spa_entry_points_without_bearer_token() throws Exception {
+        // 测试切片没有装配静态资源，放行后应落到 404 而不是被安全链拦成 401
+        mockMvc.perform(get("/"))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/index.html"))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/assets/index.js"))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/callback"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     void should_return_403_when_viewer_calls_admin_only_permission_check() throws Exception {
         mockMvc.perform(get("/api/_perm/check")
                         .param("obj", "alert")
@@ -141,6 +156,18 @@ class PermissionWebSecurityTest {
         @Bean
         ObjectMapper objectMapper() {
             return new ObjectMapper();
+        }
+
+        @Bean
+        AccessDeniedAuditPort accessDeniedAuditPort() {
+            return (actor, obj, act, path, method, clientNet, traceId) -> {
+                // 测试切片只验证 403 响应 envelope，不校验审计落库
+            };
+        }
+
+        @Bean
+        TraceIds traceIds() {
+            return new TraceIds();
         }
 
         @Bean

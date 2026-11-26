@@ -1,7 +1,13 @@
 package io.github.wangkui.triagedeck.audit;
 
+import java.time.Instant;
+import java.util.Map;
+import java.util.UUID;
+
 import io.github.wangkui.triagedeck.platform.audit.AccessDeniedAuditPort;
+import io.github.wangkui.triagedeck.platform.audit.ActorType;
 import io.github.wangkui.triagedeck.platform.audit.AuditAction;
+import io.github.wangkui.triagedeck.platform.audit.Outcome;
 import io.github.wangkui.triagedeck.platform.audit.TargetType;
 import io.github.wangkui.triagedeck.platform.security.SecurityContext;
 import io.github.wangkui.triagedeck.platform.trace.TraceIds;
@@ -32,9 +38,9 @@ public class AccessDeniedAuditRecorder implements AccessDeniedAuditPort {
                 Instant.now(),
                 effectiveActor,
                 ActorType.USER,
-                AuditAction.valueOf(act.toUpperCase()),
+                AuditAction.ACCESS_DENIED,
                 TargetType.ENDPOINT,
-                act,  // targetId will be set by caller or use act as placeholder
+                obj + ":" + act,
                 Outcome.DENIED,
                 "APP",
                 null,

@@ -81,24 +81,22 @@ public class AlertHistoryRepository {
 
     public Optional<AlertView> findById(UUID id) {
         try {
-            AlertView.AlertViewBuilder builder = AlertView.builder();
-            AlertView view = jdbc.query(SELECT_BY_ID_SQL,
-                    MapSqlParameterSource.fromMap(Map.of("id", id.toString())),
-                    (rs, rowNum) -> {
-                        builder.id(UUID.fromString(rs.getString("id")));
-                        builder.severity(io.github.wangkui.triagedeck.alert.domain.Severity.valueOf(rs.getString("severity")));
-                        builder.source(rs.getString("source"));
-                        builder.type(rs.getString("type"));
-                        builder.resourceId(rs.getString("resource_id"));
-                        builder.eventCode(rs.getString("event_code"));
-                        builder.message(rs.getString("message"));
-                        builder.firstSeenAt(rs.getTimestamp("first_seen_at").toInstant());
-                        builder.lastSeenAt(rs.getTimestamp("last_seen_at").toInstant());
-                        builder.occurrenceCount(rs.getLong("occurrence_count"));
-                        builder.fingerprint(rs.getString("fingerprint"));
-                        return builder.build();
-                    });
-            return Optional.of(view);
+            List<AlertView> rows = jdbc.query(SELECT_BY_ID_SQL,
+                    new MapSqlParameterSource("id", id),
+                    (rs, rowNum) -> AlertView.builder()
+                            .id(UUID.fromString(rs.getString("id")))
+                            .severity(io.github.wangkui.triagedeck.alert.domain.Severity.valueOf(rs.getString("severity")))
+                            .source(rs.getString("source"))
+                            .type(rs.getString("type"))
+                            .resourceId(rs.getString("resource_id"))
+                            .eventCode(rs.getString("event_code"))
+                            .message(rs.getString("message"))
+                            .firstSeenAt(rs.getTimestamp("first_seen_at").toInstant())
+                            .lastSeenAt(rs.getTimestamp("last_seen_at").toInstant())
+                            .occurrenceCount(rs.getLong("occurrence_count"))
+                            .fingerprint(rs.getString("fingerprint"))
+                            .build());
+            return rows.stream().findFirst();
         } catch (Exception e) {
             return Optional.empty();
         }

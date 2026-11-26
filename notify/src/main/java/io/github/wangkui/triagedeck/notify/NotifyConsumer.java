@@ -3,16 +3,16 @@ package io.github.wangkui.triagedeck.notify;
 import io.github.wangkui.triagedeck.platform.trace.TraceIds;
 import io.github.wangkui.triagedeck.audit.AuditCommand;
 import io.github.wangkui.triagedeck.audit.AuditWriter;
-import io.github.wangkui.triagedeck.audit.AuditDetailSanitizer;
-import io.github.wangkui.triagedeck.audit.IpMasker;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
-import jakarta.transaction.Transactional;
 
 import java.time.Instant;
+import java.util.UUID;
 
 @Component
 public class NotifyConsumer {
@@ -22,21 +22,15 @@ public class NotifyConsumer {
 
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final AuditWriter auditWriter;
-    private final AuditDetailSanitizer sanitizer;
-    private final IpMasker ipMasker;
 
     public NotifyConsumer(KafkaTemplate<String, Object> kafkaTemplate,
-                          AuditWriter auditWriter,
-                          AuditDetailSanitizer sanitizer,
-                          IpMasker ipMasker) {
+                          AuditWriter auditWriter) {
         this.kafkaTemplate = kafkaTemplate;
         this.auditWriter = auditWriter;
-        this.sanitizer = sanitizer;
-        this.ipMasker = ipMasker;
     }
 
     @KafkaListener(topics = "alert.cleared", groupId = "notify")
-    @Transactional(propagation = jakarta.transaction.Propagation.REQUIRES_NEW)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void consumeClearedMessage(String key, String message) {
         // Parse the AlertClearedMessage JSON
         // message format: {"alertId":"...uuid...","fingerprint":"...","severity":"CRITICAL",
@@ -44,7 +38,7 @@ public class NotifyConsumer {
         //   "clearedAt":"2026-11-23T02:10:00Z","clearedBy":"zhangwei"}
 
         // Write notification record
-        String maskedIp = ipMasker.mask("10.20.3.77"); // would come from actual message
+        String maskedIp = null; // 客户端网段来自消息体，当前消息未携带
 
         // Build notification payload (copy of the message)
         String payload = message;
@@ -53,7 +47,7 @@ public class NotifyConsumer {
                 "INSERT INTO notification (id, alert_id, channel, payload, created_at) " +
                         "VALUES (:id, :alertId, :channel, :payload, now())")
                 .setParameter("id", UUID.randomUUID())
-                .setParameter("alertId", key)
+                .setParameter("alertId", UUID.fromString(key))
                 .setParameter("channel", "LOG")
                 .setParameter("payload", payload)
                 .executeUpdate();
@@ -66,7 +60,7 @@ public class NotifyConsumer {
      * Handle failed message delivery - send to DLT topic
      */
     @KafkaListener(topics = "alert.ingested.dlt", groupId = "notify")
-    @Transactional(propagation = jakarta.transaction.Propagation.REQUIRES_NEW)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void handleDlt(String key, String message) {
         // Log the failed message for manual inspection
         // In production, could write to a separate DLT table or alert team

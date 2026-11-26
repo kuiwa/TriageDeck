@@ -1,87 +1,139 @@
 package io.github.wangkui.triagedeck.ai.mapper;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import io.github.wangkui.triagedeck.alert.api.AlertFilter;
-import java.util.*;
+import io.github.wangkui.triagedeck.alert.domain.Severity;
+
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Maps AI model JSON to AlertFilter with whitelist validation.
- * - Only 7 whitelisted keys allowed (per 02b-contract.md §3 #9)
- * - Non-whitelisted keys → droppedFields + 422 AI_UNPARSEABLE
- * - Disallowed keys (sql, orderBy) → immediate 422
+ * - 只允许契约 §3 #9 的查询键：scope/from/to/severities/sources/keyword/clearedBy
+ * - 白名单外键 → droppedFields + 422 AI_UNPARSEABLE
+ * - 危险键（sql/orderBy/limit/offset/page/sort）→ 立即 422
+ * - AlertFilter 只能表达单值 severity/source/keyword/from/to，其余键记录到 droppedFields
  */
-public class QueryFilterMapper {
+public final class QueryFilterMapper {
 
-    private static final Set<String> WHITELISTED = Set.of("keyword", "severity", "source", "from", "to", "resourceId", "type");
-    private static final Set<String> DISALLOWED = Set.of("sql", "orderBy", "limit", "offset", "page", "sort");
+    private static final Set<String> ALLOWED =
+            Set.of("scope", "from", "to", "severities", "sources", "keyword", "clearedBy");
+    private static final Set<String> DISALLOWED =
+            Set.of("sql", "orderBy", "limit", "offset", "page", "sort");
+    private static final ObjectMapper JSON = new ObjectMapper();
 
-    public static Result<AlertFilter> map(String json) {
-        if (json == null || json.trim().isEmpty()) return error(Collections.emptyList());
-
-        Map<String, Object> map;
-        try { map = parse(json); }
-        catch (Exception e) { return error(Collections.emptyList()); }
-
-        List<String> dropped = new ArrayList<>();
-        boolean hasWl = false;
-
-        // Check disallowed keys first (security)
-        for (String key : map.keySet()) {
-            String lower = key.toLowerCase().trim();
-            if (DISALLOWED.contains(lower)) return error(new ArrayList<>(Collections.singletonList(key)));
-            if (!WHITELISTED.contains(lower)) { dropped.add(key); }
-            else { hasWl = true; }
-        }
-
-        if (!hasWl) return error(dropped);
-
-        AlertFilter.Builder b = AlertFilter.newBuilder();
-        for (Map.Entry<String, Object> e : map.entrySet()) {
-            String lower = e.getKey().toLowerCase().trim();
-            if (WHITELISTED.contains(lower)) {
-                Object v = e.getValue();
-                switch (lower) {
-                    case "keyword" -> b.keyword(v instanceof String ? (String) v : "");
-                    case "severity" -> {
-                        if (v instanceof String) {
-                            try { b.severity(AlertFilter.Severity.valueOf(((String) v).toUpperCase())); } catch (Exception ignored) {}
-                        }
-                    }
-                    case "source" -> b.source(v instanceof String ? (String) v : "")
-                    case "resourceId" -> b.resourceId(v instanceof String ? (String) v : "")
-                    case "type" -> b.type(v instanceof String ? (String) v : "")
-                    case "from" -> { /* Instant handled elsewhere */ }
-                    case "to" -> { /* Instant handled elsewhere */ }
-                }
-            }
-        }
-
-        AlertFilter f = b.build();
-        if (f.getKeyword() == null) f = new AlertFilter(f.getSeverity(), f.getSource(), "", f.getOccurredAtFrom(), f.getOccurredAtTo());
-        if (f.getSource() == null || f.getSource().isEmpty()) f = new AlertFilter(f.getSeverity(), "", f.getKeyword(), f.getOccurredAtFrom(), f.getOccurredAtTo());
-        return new Result<>(f, dropped, false);
+    private QueryFilterMapper() {
     }
 
-    private static Result<AlertFilter> error(List<String> dropped) { return new Result<>(null, dropped, true); }
+    public static Result<AlertFilter> map(String json) {
+        if (json == null || json.isBlank()) {
+            return error(List.of());
+        }
 
-    private static Map<String, Object> parse(String json) {
-        Map<String, Object> r = new HashMap<>();
-        String inner = json.trim();
-        if (inner.startsWith("{") && inner.endsWith("}")) inner = inner.substring(1, inner.length() - 1);
-        for (String p : inner.split(",")) {
-            String[] kv = p.split(":", 2);
-            if (kv.length == 2) {
-                String k = kk[0].trim().replace("\"", "").replace("'", "");
-                String v = kk[1].trim();
-                if (v.startsWith("\"") && v.endsWith("\"")) r.put(k, v.substring(1, v.length() - 1));
-                else if (v.startsWith("'") && v.endsWith("'")) r.put(k, v.substring(1, v.length() - 1));
-                else { try { r.put(k, Integer.parseInt(v)); } catch (Exception) { try { r.put(k, Double.parseDouble(v)); } catch (Exception) { r.put(k, v); } } }
+        Map<String, Object> map;
+        try {
+            map = JSON.readValue(json, new TypeReference<Map<String, Object>>() { });
+        } catch (Exception e) {
+            return error(List.of());
+        }
+
+        List<String> dropped = new ArrayList<>();
+
+        // 危险键优先判定，避免任何透传
+        for (String key : map.keySet()) {
+            String lower = key.toLowerCase(Locale.ROOT).trim();
+            if (DISALLOWED.contains(lower)) {
+                return error(List.of(key));
+            }
+            if (!ALLOWED.contains(lower)) {
+                dropped.add(key);
             }
         }
-        return r;
+
+        Severity severity = parseSeverity(firstValue(map.get("severities")));
+        String source = trimmed(firstValue(map.get("sources")));
+        String keyword = trimmed(firstValue(map.get("keyword")));
+        Instant from = parseInstant(map.get("from"));
+        Instant to = parseInstant(map.get("to"));
+
+        // scope/clearedBy 当前读取端口无法表达，记录为丢弃字段
+        if (map.containsKey("scope")) {
+            dropped.add("scope");
+        }
+        if (map.containsKey("clearedBy")) {
+            dropped.add("clearedBy");
+        }
+
+        boolean hasUsable = severity != null || source != null || keyword != null
+                || from != null || to != null;
+        if (!hasUsable) {
+            return error(dropped);
+        }
+
+        return new Result<>(new AlertFilter(severity, source, keyword, from, to), dropped, false);
+    }
+
+    private static Result<AlertFilter> error(List<String> dropped) {
+        return new Result<>(null, dropped, true);
+    }
+
+    private static String firstValue(Object value) {
+        if (value instanceof String s) {
+            return s;
+        }
+        if (value instanceof List<?> list && !list.isEmpty() && list.get(0) instanceof String s) {
+            return s;
+        }
+        return null;
+    }
+
+    private static String trimmed(String value) {
+        if (value == null) {
+            return null;
+        }
+        String result = value.trim();
+        return result.isEmpty() ? null : result;
+    }
+
+    private static Severity parseSeverity(String value) {
+        String result = trimmed(value);
+        if (result == null) {
+            return null;
+        }
+        try {
+            return Severity.valueOf(result.toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    private static Instant parseInstant(Object value) {
+        String result = trimmed(firstValue(value));
+        if (result == null) {
+            return null;
+        }
+        try {
+            return Instant.parse(result);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     public static class Result<T> {
-        public final T value; public final List<String> droppedFields; public final boolean isParseError;
-        public Result(T v, List<String> df, boolean pe) { value = v; droppedFields = df; isParseError = pe; }
+        public final T value;
+        public final List<String> droppedFields;
+        public final boolean isParseError;
+
+        public Result(T value, List<String> droppedFields, boolean isParseError) {
+            this.value = value;
+            this.droppedFields = droppedFields;
+            this.isParseError = isParseError;
+        }
     }
 }

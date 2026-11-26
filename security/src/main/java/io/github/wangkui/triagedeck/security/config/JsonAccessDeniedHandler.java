@@ -8,12 +8,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.wangkui.triagedeck.platform.audit.AccessDeniedAuditPort;
 import io.github.wangkui.triagedeck.security.api.ApiError;
 import io.github.wangkui.triagedeck.platform.trace.TraceIds;
+import io.github.wangkui.triagedeck.security.auth.CurrentActor;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.access.AccessDeniedHandler;
 
 public final class JsonAccessDeniedHandler implements AccessDeniedHandler {
@@ -44,12 +47,21 @@ public final class JsonAccessDeniedHandler implements AccessDeniedHandler {
 
         // 403 越权审计：写在 handler 里，不要用 @RestControllerAdvice
         try {
-            String actor = request.getRemoteUser();
-            if (actor == null) actor = "unknown";
+            String actor = "unknown";
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.getPrincipal() instanceof CurrentActor currentActor) {
+                actor = currentActor.username();
+            }
+
+            Object deniedObj = request.getAttribute(PermissionInterceptor.DENIED_OBJ_ATTRIBUTE);
+            Object deniedAct = request.getAttribute(PermissionInterceptor.DENIED_ACT_ATTRIBUTE);
+            String obj = deniedObj != null ? deniedObj.toString() : "unknown";
+            String act = deniedAct != null ? deniedAct.toString() : "unknown";
+
             auditPort.recordDenied(
                     actor,
-                    "alert",
-                    "clear",
+                    obj,
+                    act,
                     request.getRequestURI(),
                     request.getMethod(),
                     request.getRemoteAddr(),

@@ -69,8 +69,8 @@ public class AlertHistoryListController {
             params.put("to", to);
         }
 
-        // Count query - use simple count with where
-        String countSql = "SELECT COUNT(*) FROM alerts_history " + where;
+        // Count query - repository 负责拼接 SELECT COUNT(*)
+        String countSql = where.toString();
         long total = historyRepo.getCount(countSql, params);
 
         // Data query with pagination
@@ -97,36 +97,22 @@ public class AlertHistoryListController {
     }
 
     private AlertHistoryView mapToAlertHistoryView(Map<String, Object> row) {
-        AlertView.AlertViewBuilder builder = AlertView.builder();
-        builder.id(UUID.fromString(row.get("id").toString()));
-        builder.severity(io.github.wangkui.triagedeck.alert.domain.Severity.valueOf(row.get("severity").toString()));
-        builder.source(row.get("source").toString());
-        builder.type(row.get("type").toString());
-        builder.resourceId(row.get("resource_id").toString());
-        builder.eventCode(row.get("event_code").toString());
-        builder.message(row.get("message").toString());
-        builder.firstSeenAt(((java.sql.Timestamp) row.get("first_seen_at")).toInstant());
-        builder.lastSeenAt(((java.sql.Timestamp) row.get("last_seen_at")).toInstant());
-        builder.occurrenceCount((long) row.get("occurrence_count"));
-        builder.fingerprint(row.get("fingerprint").toString());
-
-        AlertHistoryView.AlertHistoryViewBuilder hbuilder = AlertHistoryView.builder();
-        hbuilder.id(builder.id());
-        hbuilder.severity(builder.severity());
-        hbuilder.source(builder.source());
-        hbuilder.type(builder.type());
-        hbuilder.resourceId(builder.resourceId());
-        hbuilder.eventCode(builder.eventCode());
-        hbuilder.message(builder.message());
-        hbuilder.firstSeenAt(builder.firstSeenAt());
-        hbuilder.lastSeenAt(builder.lastSeenAt());
-        hbuilder.occurrenceCount(builder.occurrenceCount());
-        hbuilder.fingerprint(builder.fingerprint());
-        hbuilder.clearedAt(((java.sql.Timestamp) row.get("cleared_at")).toInstant());
-        hbuilder.clearedBy(row.get("cleared_by").toString());
-        hbuilder.clearedReason(row.get("cleared_reason") != null ? row.get("cleared_reason").toString() : null);
-        hbuilder.clearMode(row.get("clear_mode").toString());
-
-        return hbuilder.build();
+        return AlertHistoryView.builder()
+                .id(UUID.fromString(row.get("id").toString()))
+                .severity(io.github.wangkui.triagedeck.alert.domain.Severity.valueOf(row.get("severity").toString()))
+                .source(row.get("source").toString())
+                .type(row.get("type").toString())
+                .resourceId(row.get("resource_id").toString())
+                .eventCode(row.get("event_code").toString())
+                .message(row.get("message").toString())
+                .firstSeenAt(((java.sql.Timestamp) row.get("first_seen_at")).toInstant())
+                .lastSeenAt(((java.sql.Timestamp) row.get("last_seen_at")).toInstant())
+                .occurrenceCount(((Number) row.get("occurrence_count")).longValue())
+                .fingerprint(row.get("fingerprint").toString())
+                .clearedAt(((java.sql.Timestamp) row.get("cleared_at")).toInstant())
+                .clearedBy(row.get("cleared_by").toString())
+                .clearedReason(row.get("cleared_reason") != null ? row.get("cleared_reason").toString() : null)
+                .clearMode(row.get("clear_mode").toString())
+                .build();
     }
 }

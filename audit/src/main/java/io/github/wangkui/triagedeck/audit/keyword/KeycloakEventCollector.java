@@ -193,21 +193,22 @@ public class KeycloakEventCollector {
                         "INSERT INTO audit_event (id, occurred_at, recorded_at, actor, actor_type, action, "
                                 + "target_type, target_id, outcome, source, source_event_id, client_net, trace_id, detail) "
                                 + "VALUES (:id, :occurredAt, now(), :actor, :actorType, :action, "
-                                + ":targetType, :targetId, :outcome, :source, :sourceEventId, :clientNet, :traceId, :detail::jsonb) "
+                                + ":targetType, :targetId, :outcome, :source, :sourceEventId, :clientNet, :traceId, "
+                                + "cast(:detail as jsonb)) "
                                 + "ON CONFLICT (source_event_id) WHERE source_event_id IS NOT NULL DO NOTHING")
-                        .setParameter("id", cmd.getId())
-                        .setParameter("occurredAt", cmd.getOccurredAt())
-                        .setParameter("actor", cmd.getActor())
-                        .setParameter("actorType", cmd.getActorType())
-                        .setParameter("action", cmd.getAction())
-                        .setParameter("targetType", cmd.getTargetType())
-                        .setParameter("targetId", cmd.getTargetId())
-                        .setParameter("outcome", cmd.getOutcome())
-                        .setParameter("source", cmd.getSource())
-                        .setParameter("sourceEventId", cmd.getSourceEventId())
-                        .setParameter("clientNet", cmd.getClientNet())
-                        .setParameter("traceId", cmd.getTraceId())
-                        .setParameter("detail", cmd.getDetail())
+                        .setParameter("id", cmd.id())
+                        .setParameter("occurredAt", cmd.occurredAt())
+                        .setParameter("actor", cmd.actor())
+                        .setParameter("actorType", cmd.actorType().name())
+                        .setParameter("action", cmd.action().name())
+                        .setParameter("targetType", cmd.targetType().name())
+                        .setParameter("targetId", cmd.targetId())
+                        .setParameter("outcome", cmd.outcome().name())
+                        .setParameter("source", cmd.source())
+                        .setParameter("sourceEventId", cmd.sourceEventId())
+                        .setParameter("clientNet", cmd.clientNet())
+                        .setParameter("traceId", cmd.traceId())
+                        .setParameter("detail", cmd.detail())
                         .executeUpdate();
                 inserted += rows;
             } catch (Exception e) {

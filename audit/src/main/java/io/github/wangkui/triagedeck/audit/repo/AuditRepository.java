@@ -21,6 +21,9 @@ public class AuditRepository {
         this.jdbcTemplate = jdbcTemplate;
     }
 
+    private static final com.fasterxml.jackson.databind.ObjectMapper JSON =
+            new com.fasterxml.jackson.databind.ObjectMapper();
+
     private static final RowMapper<AuditEventView> ROW_MAPPER = (rs, rowNum) -> new AuditEventView(
             UUID.fromString(rs.getString("id")),
             rs.getTimestamp("occurred_at").toInstant(),
@@ -33,8 +36,19 @@ public class AuditRepository {
             rs.getString("source"),
             rs.getString("client_net"),
             rs.getString("trace_id"),
-            (Map<String, Object>) rs.getObject("detail")
+            parseDetail(rs.getString("detail"))
     );
+
+    private static Map<String, Object> parseDetail(String detail) {
+        if (detail == null || detail.isBlank()) {
+            return Map.of();
+        }
+        try {
+            return JSON.readValue(detail, new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() { });
+        } catch (Exception e) {
+            return Map.of();
+        }
+    }
 
     public List<AuditEventView> findByCriteria(String from, Instant to, String actor,
                                                List<String> actions, List<String> outcomes,

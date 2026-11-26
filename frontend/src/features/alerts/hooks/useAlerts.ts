@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { AlertView } from "../../shared/api/types";
+import { AlertView } from "../../../shared/api/types";
 
 interface AlertsQueryParams {
   page?: number;

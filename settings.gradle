@@ -1,1 +1,3 @@
 rootProject.name = 'TriageDeck'
+
+include 'app', 'alert', 'audit', 'ai', 'notify', 'platform', 'security'

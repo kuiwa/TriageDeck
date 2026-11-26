@@ -1,4 +1,10 @@
-import { User, WebStorageStateStore } from "oidc-client-ts";
+import {
+  UserManager,
+  UserManagerSettings,
+  User,
+  SigninResponse,
+  SignoutResponse,
+} from "oidc-client-ts";
 
 interface AuthState {
   user: User | null;
@@ -15,24 +21,28 @@ interface WhoAmI {
   permissions: Array<{ obj: string; act: string }>;
 }
 
-let currentUser: User | null = null;
-let currentWhoami: WhoAmI | null = null;
-let listeners: Array<(state: AuthState) => void> = [];
-
-// Keycloak OIDC config - issuer from environment
-const OIDC_CONFIG = {
+const USER_MANAGER_CONFIG: UserManagerSettings = {
   authority: import.meta.env.VITE_KEYCLOAK_ISSUER_URI || "http://localhost:8081/realms/triagedeck",
   client_id: "triagedeck-frontend",
   redirect_uri: `${window.location.origin}/callback`,
+  post_logout_redirect_uri: `${window.location.origin}/`,
   response_type: "code",
   scope: "openid profile email",
+  // client_secret is optional; omit or set undefined
   automaticSilentRenew: true,
   silent_redirect_uri: `${window.location.origin}/silent-renew.html`,
   loadUserInfo: true,
   // IMPORTANT: NO token in localStorage/sessionStorage (AGENTS.md §2.1.6)
-  // Use memory only via userStore with no persistence
-  userStore: new WebStorageStateStore({ store: window.sessionStorage }),
+  userStore: new (await import("oidc-client-ts")).WebStorageStateStore({
+    store: window.sessionStorage,
+  }),
 };
+
+const userManager = new UserManager(USER_MANAGER_CONFIG);
+
+let currentUser: User | null = null;
+let currentWhoami: WhoAmI | null = null;
+let listeners: Array<(state: AuthState) => void> = [];
 
 export function getCurrentUser(): User | null {
   return currentUser;
@@ -61,23 +71,23 @@ export function subscribe(listener: (state: AuthState) => void) {
 }
 
 export async function signIn() {
-  const { OidcClient } = await import("oidc-client-ts");
-  const client = new OidcClient(OIDC_CONFIG);
   try {
-    await client.signinRedirect();
+    await userManager.signinRedirect();
   } catch (error) {
     console.error("Sign in failed:", error);
   }
 }
 
 export async function signInCallback() {
-  const { OidcClient } = await import("oidc-client-ts");
-  const client = new OidcClient(OIDC_CONFIG);
   try {
-    currentUser = await client.signinRedirectCallback();
-    await fetchWhoami(currentUser.access_token);
-    notifyListeners();
-    window.location.replace(window.location.origin);
+    const user = await userManager.signinRedirectCallback();
+    if (user) {
+      currentUser = user;
+      // Fetch whoami using the access token
+      await fetchWhoami(user.access_token ?? "");
+      notifyListeners();
+      window.location.replace(window.location.origin);
+    }
   } catch (error) {
     console.error("Callback failed:", error);
     currentUser = null;
@@ -86,16 +96,14 @@ export async function signInCallback() {
 }
 
 export async function signOut() {
-  currentUser = null;
-  currentWhoami = null;
-  notifyListeners();
-  const { OidcClient } = await import("oidc-client-ts");
-  const client = new OidcClient(OIDC_CONFIG);
   try {
-    await client.signoutRedirect();
+    await userManager.signoutRedirect();
   } catch (error) {
     console.error("Sign out failed:", error);
   }
+  currentUser = null;
+  currentWhoami = null;
+  notifyListeners();
 }
 
 export async function fetchWhoami(accessToken: string): Promise<void> {
@@ -104,7 +112,13 @@ export async function fetchWhoami(accessToken: string): Promise<void> {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     if (response.ok) {
-      currentWhoami = await response.json();
+      const data = await response.json();
+      currentWhoami = {
+        username: data.username,
+        subject: data.subject,
+        roles: data.roles,
+        permissions: data.permissions,
+      };
     } else {
       currentWhoami = null;
     }

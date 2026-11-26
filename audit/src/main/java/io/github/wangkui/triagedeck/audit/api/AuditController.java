@@ -8,6 +8,7 @@ import io.github.wangkui.triagedeck.platform.audit.ActorType;
 import io.github.wangkui.triagedeck.platform.audit.AuditAction;
 import io.github.wangkui.triagedeck.platform.audit.Outcome;
 import io.github.wangkui.triagedeck.platform.audit.TargetType;
+import io.github.wangkui.triagedeck.platform.security.RequirePermission;
 import io.github.wangkui.triagedeck.platform.trace.TraceIds;
 import io.github.wangkui.triagedeck.platform.security.SecurityContext;
 import jakarta.servlet.http.HttpServletResponse;
@@ -15,8 +16,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.PrintWriter;
@@ -61,7 +60,7 @@ public class AuditController {
     }
 
     @GetMapping("/events")
-    @PreAuthorize("hasAuthority('audit:read')")
+    @RequirePermission(obj = "audit", act = "read")
     public ResponseEntity<Map<String, Object>> listEvents(
             @RequestParam("from") String from,
             @RequestParam(value = "to", required = false) String toStr,
@@ -119,8 +118,7 @@ public class AuditController {
     }
 
     @GetMapping(value = "/events/export", produces = MediaType.TEXT_PLAIN_VALUE)
-    @PreAuthorize("hasAuthority('audit:export')")
-    @Transactional(readOnly = true)
+    @RequirePermission(obj = "audit", act = "export")
     public void export(
             @RequestParam("from") String from,
             @RequestParam(value = "to", required = false) String toStr,

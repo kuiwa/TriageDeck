@@ -1,5 +1,9 @@
 package io.github.wangkui.triagedeck.alert.api;
 
+import io.github.wangkui.triagedeck.alert.domain.Severity;
+
+import java.time.Instant;
+
 /**
  * Filter criteria for querying alerts (read-only).
  * Used by AlertReadPort.findAll() and AI briefing query filtering.

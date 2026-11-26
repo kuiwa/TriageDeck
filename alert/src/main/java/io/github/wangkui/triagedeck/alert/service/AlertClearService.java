@@ -32,7 +32,7 @@ public class AlertClearService {
     }
 
     @Transactional
-    @Auditable(action = "ALERT_CLEARED", target = "ALERT")
+    @Auditable(action = "ALERT_CLEARED", targetType = "ALERT", targetIdParam = "id")
     public AlertClearResponse clear(UUID id, String reason) {
         // 1. Try to find the alert in active first to give 404 if not found
         Optional<AlertView> activeOpt = activeRepo.findById(id);
@@ -59,8 +59,8 @@ public class AlertClearService {
                 active.occurrenceCount(),
                 active.lastSeenAt(), // latest_payload can be empty for clear
                 active.id(), // latest_event_id - reuse alert id for now
-                securityContext.currentUser(),
-                traceIds.currentTraceId(),
+                securityContext.getCurrentUser(),
+                traceIds.current(),
                 reason);
 
         if (!inserted) {
