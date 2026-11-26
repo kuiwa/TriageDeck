@@ -34,11 +34,28 @@ async function fetchAlerts(
   return response.json();
 }
 
-export function useAlerts(accessToken: string | null, params: AlertsQueryParams = {}) {
+export function useAlerts(
+  accessToken: string | null,
+  params: AlertsQueryParams = {},
+  onUnauthorized?: () => Promise<string | null>,
+) {
   return useQuery({
     queryKey: ["alerts", "active", params],
-    queryFn: () => fetchAlerts(accessToken, params),
+    queryFn: async () => {
+      try {
+        return await fetchAlerts(accessToken, params);
+      } catch (error) {
+        if (error instanceof Error && error.message === "UNAUTHORIZED" && onUnauthorized) {
+          const newToken = await onUnauthorized();
+          if (newToken) {
+            return await fetchAlerts(newToken, params);
+          }
+        }
+        throw error;
+      }
+    },
     enabled: !!accessToken,
     staleTime: 10_000,
+    refetchInterval: 30_000,
   });
 }

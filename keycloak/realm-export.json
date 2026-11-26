@@ -15,20 +15,37 @@
       "directAccessGrantsEnabled": false,
       "redirectUris": [
         "http://localhost:5173/callback",
+        "http://localhost:5174/callback",
         "http://localhost:8080/callback",
         "http://127.0.0.1:5173/callback",
+        "http://127.0.0.1:5174/callback",
         "http://127.0.0.1:8080/callback"
       ],
       "webOrigins": [
         "http://localhost:5173",
+        "http://localhost:5174",
         "http://localhost:8080",
         "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
         "http://127.0.0.1:8080"
       ],
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "http://localhost:5173/*##http://localhost:8080/*##http://127.0.0.1:5173/*##http://127.0.0.1:8080/*"
+        "post.logout.redirect.uris": "http://localhost:5173/*##http://localhost:5174/*##http://localhost:8080/*##http://127.0.0.1:5173/*##http://127.0.0.1:5174/*##http://127.0.0.1:8080/*"
       }
+    },
+    {
+      "clientId": "ingest-service",
+      "name": "TriageDeck alert ingest service",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "fullScopeAllowed": true
     }
   ],
   "users": [
@@ -51,6 +68,12 @@
       "emailVerified": true,
       "credentials": [{ "type": "password", "value": "viewer", "temporary": false }],
       "realmRoles": ["viewer"]
+    },
+    {
+      "username": "service-account-ingest-service",
+      "enabled": true,
+      "serviceAccountClientId": "ingest-service",
+      "realmRoles": ["service"]
     }
   ],
   "roles": {

@@ -22,7 +22,6 @@ public class AlertIngestService {
 
     private static final int MAX_PAYLOAD_BYTES = 64 * 1024;
     private static final Duration MAX_FUTURE_SKEW = Duration.ofMinutes(5);
-    private static final Duration MAX_AGE = Duration.ofDays(30);
 
     private final AlertIngestRepository repository;
 
@@ -57,8 +56,7 @@ public class AlertIngestService {
         String eventCode = normalizedOptional(command.eventCode(), 128);
         String message = normalizedRequired(command.message(), 4000);
         Instant now = Instant.now();
-        if (command.occurredAt().isAfter(now.plus(MAX_FUTURE_SKEW))
-                || command.occurredAt().isBefore(now.minus(MAX_AGE))) {
+        if (command.occurredAt().isAfter(now.plus(MAX_FUTURE_SKEW))) {
             throw new AlertIngestValidationException();
         }
 

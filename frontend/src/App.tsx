@@ -5,8 +5,6 @@ import { getWhoami, type WhoAmI } from "./shared/api/apiClient";
 import type { User } from "oidc-client-ts";
 import { AlertTable } from "./features/alerts/components/AlertTable";
 import { useAlerts } from "./features/alerts/hooks/useAlerts";
-import { getAccessToken } from "./features/auth/hooks/useAuth";
-import type { AlertView } from "./shared/api/types";
 
 let authenticationInitialization: Promise<User | null> | undefined;
 
@@ -30,13 +28,6 @@ export function App() {
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
   const [authError, setAuthError] = useState(false);
-  const [alertsData, setAlertsData] = useState<{
-    items: AlertView[];
-    total: number;
-    page: number;
-    size: number;
-  } | null>(null);
-
   useEffect(() => {
     let active = true;
     void initializeAuthentication()
@@ -44,7 +35,6 @@ export function App() {
         if (active && initializedUser) {
           setUser(initializedUser);
           setReady(true);
-          void fetchAlerts();
         }
       })
       .catch(() => {
@@ -53,16 +43,29 @@ export function App() {
     return () => { active = false; };
   }, []);
 
-  async function fetchAlerts() {
-    if (!user) return;
-    const token = user.access_token;
-    const response = await fetch("/api/alerts/active?page=0&size=20", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!response.ok) throw new Error("Failed to fetch alerts");
-    const data = await response.json();
-    setAlertsData(data);
-  }
+  const alerts = useAlerts(
+    user?.access_token ?? null,
+    { page: 0, size: 20 },
+    async () => {
+      try {
+        const renewedUser = await userManager.signinSilent();
+        if (renewedUser && !renewedUser.expired) {
+          setUser(renewedUser);
+          return renewedUser.access_token;
+        }
+      } catch {
+        // 静默续签失败（如无 SSO 会话），由下方 useEffect 处理跳转
+      }
+      return null;
+    },
+  );
+
+  // token 失效且无法静默续签时，重定向到 Keycloak 重新登录
+  useEffect(() => {
+    if (alerts.isError && alerts.error?.message === "UNAUTHORIZED") {
+      void userManager.signinRedirect();
+    }
+  }, [alerts.isError, alerts.error]);
 
   const whoami = useQuery<WhoAmI>({
     queryKey: ["whoami"],
@@ -150,10 +153,10 @@ export function App() {
       </section>
 
       <AlertTable
-        items={alertsData?.items ?? []}
-        total={alertsData?.total ?? 0}
-        page={alertsData?.page ?? 0}
-        size={alertsData?.size ?? 20}
+        items={alerts.data?.items ?? []}
+        total={alerts.data?.total ?? 0}
+        page={alerts.data?.page ?? 0}
+        size={alerts.data?.size ?? 20}
       />
 
       {whoami.data && (
