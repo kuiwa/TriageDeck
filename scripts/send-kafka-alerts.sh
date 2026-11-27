@@ -409,7 +409,10 @@ build_batch() {
   local index slot resource event severity metric message key
   for ((index = 0; index < COUNT; index++)); do
     slot=$((index % RESOURCES + 1))
-    resource="device-${slot}"
+    # 资源id带上 index，保证同一批次内每条告警 fingerprint 都不同，
+    # 落库时走 insert 新行（而非 on-conflict 只累加 occurrence_count），
+    # 这样前端活动告警表里能直观看到新增行数。
+    resource="device-${slot}-${index}"
     event="$(event_code_for "$TYPE" "$slot")"
     severity="$(severity_for "$index")"
     metric=$((70 + (index * 7) % 30))
