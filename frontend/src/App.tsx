@@ -8,11 +8,13 @@ import {
 } from "./auth/keycloakUrls";
 import { getWhoami, type WhoAmI } from "./shared/api/apiClient";
 import type { User } from "oidc-client-ts";
+import { MOCK_WHOAMI } from "./shared/mockData";
 import { AlertTable } from "./features/alerts/components/AlertTable";
 import { HistoryTable } from "./features/alerts/components/HistoryTable";
 import { SeverityDashboard } from "./features/alerts/components/SeverityDashboard";
 import { useAlerts, clearAlert, useHistoryAlerts, usePageClamp } from "./features/alerts/hooks/useAlerts";
 import { useSeveritySummary } from "./features/alerts/hooks/useSeveritySummary";
+import { useMockAlerts, useMockHistoryAlerts } from "./features/alerts/hooks/useMockAlerts";
 
 let authenticationInitialization: Promise<User | null> | undefined;
 
@@ -35,6 +37,12 @@ function initializeAuthentication(): Promise<User | null> {
 }
 
 export function App() {
+  const isMockMode = import.meta.env.VITE_MOCK_MODE === "true";
+
+  if (isMockMode) {
+    return <MockApp />;
+  }
+
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
   const [authError, setAuthError] = useState(false);
@@ -333,6 +341,154 @@ export function App() {
           </dl>
         </section>
       )}
+    </main>
+  );
+}
+
+/**
+ * VITE_MOCK_MODE=true 时的静态演示界面。
+ * 跳过 Keycloak 认证，直接使用内存模拟数据渲染告警列表、分页、严重度看板与会话卡片，
+ * 适合 Cloudflare Pages 等纯静态托管场景下的离线展示。
+ */
+function MockApp() {
+  const PAGE_SIZE = 20;
+  const [activeTab, setActiveTab] = useState<"active" | "history">("active");
+  const [activePage, setActivePage] = useState(0);
+  const [historyPage, setHistoryPage] = useState(0);
+  const [clearMessage, setClearMessage] = useState<string | null>(null);
+
+  const activeData = useMockAlerts(activePage, PAGE_SIZE);
+  const historyData = useMockHistoryAlerts(historyPage, PAGE_SIZE);
+
+  // 按级别统计（与真实 SeveritySummary 结构一致）
+  const severitySummary = activeData.items.reduce<Record<string, number>>(
+    (acc, alert) => {
+      acc[alert.severity] = (acc[alert.severity] ?? 0) + 1;
+      return acc;
+    },
+    {} as Record<string, number>,
+  );
+
+  const canClear = false;
+
+  const handleClear = async () => {
+    setClearMessage("模拟模式下不可执行清除操作");
+    setTimeout(() => setClearMessage(null), 3000);
+  };
+
+  usePageClamp(activePage, setActivePage, activeData);
+  usePageClamp(historyPage, setHistoryPage, historyData);
+
+  return (
+    <main className="app-shell">
+      <nav className="topbar" aria-label="主导航">
+        <div className="brand-lockup">
+          <div className="brand-mark" aria-hidden="true">TD</div>
+          <div>
+            <h1 className="brand-name">TriageDeck</h1>
+            <p className="brand-description">告警分诊台 · 统一审计控制台</p>
+          </div>
+        </div>
+        <div className="account-actions">
+          <span className="account-chip">
+            <strong>{MOCK_WHOAMI.username}</strong>
+            {" · "}
+            {MOCK_WHOAMI.roles.join(", ") || "viewer"}
+          </span>
+          <span className="mock-badge">模拟演示模式</span>
+        </div>
+      </nav>
+
+      <SeverityDashboard
+        summary={{
+          counts: {
+            CRITICAL: severitySummary["CRITICAL"] ?? 0,
+            HIGH: severitySummary["HIGH"] ?? 0,
+            MEDIUM: severitySummary["MEDIUM"] ?? 0,
+            LOW: severitySummary["LOW"] ?? 0,
+            INFO: severitySummary["INFO"] ?? 0,
+          },
+          total: activeData.total,
+        }}
+        unavailable={false}
+      />
+
+      <section className="dashboard-heading" aria-labelledby="dashboard-title">
+        <div>
+          <p className="eyebrow">Alert operations</p>
+          <h2 className="page-title" id="dashboard-title">告警总览（模拟数据）</h2>
+          <p className="page-description">
+            本数据为静态模拟数据，用于演示与静态展示，不接任何后端服务。
+          </p>
+        </div>
+        <div className="tab-group" role="tablist" aria-label="告警标签页">
+          <button
+            role="tab"
+            aria-selected={activeTab === "active"}
+            className={`tab-button ${activeTab === "active" ? "tab-active" : ""}`}
+            onClick={() => setActiveTab("active")}
+          >
+            活动告警
+            <span className="tab-count">{activeData.total}</span>
+          </button>
+          <button
+            role="tab"
+            aria-selected={activeTab === "history"}
+            className={`tab-button ${activeTab === "history" ? "tab-active" : ""}`}
+            onClick={() => setActiveTab("history")}
+          >
+            历史告警
+            <span className="tab-count">{historyData.total}</span>
+          </button>
+        </div>
+      </section>
+
+      {clearMessage && <div className="clear-message">{clearMessage}</div>}
+
+      {activeTab === "active" ? (
+        <AlertTable
+          items={activeData.items}
+          total={activeData.total}
+          page={activePage}
+          size={activeData.size}
+          canClear={canClear}
+          onClear={handleClear}
+          onPageChange={setActivePage}
+        />
+      ) : (
+        <HistoryTable
+          items={historyData.items}
+          total={historyData.total}
+          page={historyPage}
+          size={historyData.size}
+          onPageChange={setHistoryPage}
+        />
+      )}
+
+      <section className="profile-card" aria-labelledby="profile-title">
+        <div className="profile-heading">
+          <div>
+            <h2 className="section-title" id="profile-title">当前会话</h2>
+            <p className="profile-caption">模拟演示身份（未接 Keycloak）</p>
+          </div>
+        </div>
+        <dl className="profile-grid">
+          <div className="profile-item">
+            <dt>用户名</dt>
+            <dd>{MOCK_WHOAMI.username}</dd>
+          </div>
+          <div className="profile-item">
+            <dt>角色</dt>
+            <dd>{MOCK_WHOAMI.roles.join(", ") || "无"}</dd>
+          </div>
+          <div className="profile-item profile-item-wide">
+            <dt>权限</dt>
+            <dd>
+              {MOCK_WHOAMI.permissions.map(({ obj, act }) => `${obj}:${act}`).join(", ")}
+            </dd>
+          </div>
+        </dl>
+      </section>
     </main>
   );
 }

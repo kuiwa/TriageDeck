@@ -166,6 +166,29 @@ textarea:focus-visible {
   white-space: nowrap;
 }
 
+.mock-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid #d5ece7;
+  border-radius: 999px;
+  background: #effaf7;
+  color: #176b61;
+  font-size: 11px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.mock-badge::before {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #18a183;
+  content: "";
+  box-shadow: 0 0 0 3px rgb(24 161 131 / 13%);
+}
+
 .account-chip strong {
   color: var(--color-ink);
   font-weight: 650;
