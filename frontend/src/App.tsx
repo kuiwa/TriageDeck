@@ -5,9 +5,11 @@ import { getWhoami, type WhoAmI } from "./shared/api/apiClient";
 import type { User } from "oidc-client-ts";
 import { AlertTable } from "./features/alerts/components/AlertTable";
 import { HistoryTable } from "./features/alerts/components/HistoryTable";
-import { useAlerts, clearAlert, useHistoryAlerts } from "./features/alerts/hooks/useAlerts";
+import { useAlerts, clearAlert, useHistoryAlerts, usePageClamp } from "./features/alerts/hooks/useAlerts";
 
 let authenticationInitialization: Promise<User | null> | undefined;
+
+const PAGE_SIZE = 20;
 
 function initializeAuthentication(): Promise<User | null> {
   authenticationInitialization ??= (async () => {
@@ -30,6 +32,8 @@ export function App() {
   const [ready, setReady] = useState(false);
   const [authError, setAuthError] = useState(false);
   const [activeTab, setActiveTab] = useState<"active" | "history">("active");
+  const [activePage, setActivePage] = useState(0);
+  const [historyPage, setHistoryPage] = useState(0);
   const [clearMessage, setClearMessage] = useState<string | null>(null);
   useEffect(() => {
     let active = true;
@@ -48,7 +52,7 @@ export function App() {
 
   const alerts = useAlerts(
     user?.access_token ?? null,
-    { page: 0, size: 20 },
+    { page: activePage, size: PAGE_SIZE },
     async () => {
       try {
         const renewedUser = await userManager.signinSilent();
@@ -61,7 +65,8 @@ export function App() {
       }
       return null;
     },
-    activeTab === "active", // 仅当活动告警tab激活时启用
+    Boolean(user?.access_token),
+    activeTab === "active", // 仅活动告警tab激活时轮询
   );
 
   // token 失效且无法静默续签时，重定向到 Keycloak 重新登录
@@ -73,7 +78,7 @@ export function App() {
 
   const historyAlerts = useHistoryAlerts(
     user?.access_token ?? null,
-    { page: 0, size: 20 },
+    { page: historyPage, size: PAGE_SIZE },
     async () => {
       try {
         const renewedUser = await userManager.signinSilent();
@@ -86,8 +91,12 @@ export function App() {
       }
       return null;
     },
-    activeTab === "history", // 仅当历史告警tab激活时启用
+    Boolean(user?.access_token),
+    activeTab === "history", // 仅历史告警tab激活时轮询
   );
+
+  usePageClamp(activePage, setActivePage, alerts.data);
+  usePageClamp(historyPage, setHistoryPage, historyAlerts.data);
 
   // 切换tab时刷新对应的数据
   const previousTabRef = useRef<"active" | "history">(activeTab);
@@ -212,6 +221,7 @@ export function App() {
             onClick={() => setActiveTab("active")}
           >
             活动告警
+            {alerts.data && <span className="tab-count">{alerts.data.total}</span>}
           </button>
           <button
             role="tab"
@@ -220,6 +230,9 @@ export function App() {
             onClick={() => setActiveTab("history")}
           >
             历史告警
+            {historyAlerts.data && (
+              <span className="tab-count">{historyAlerts.data.total}</span>
+            )}
           </button>
         </div>
       </section>
@@ -232,17 +245,19 @@ export function App() {
         <AlertTable
           items={alerts.data?.items ?? []}
           total={alerts.data?.total ?? 0}
-          page={alerts.data?.page ?? 0}
-          size={alerts.data?.size ?? 20}
+          page={activePage}
+          size={alerts.data?.size ?? PAGE_SIZE}
           canClear={canClear}
           onClear={handleClear}
+          onPageChange={setActivePage}
         />
       ) : (
         <HistoryTable
           items={historyAlerts.data?.items ?? []}
           total={historyAlerts.data?.total ?? 0}
-          page={historyAlerts.data?.page ?? 0}
-          size={historyAlerts.data?.size ?? 20}
+          page={historyPage}
+          size={historyAlerts.data?.size ?? PAGE_SIZE}
+          onPageChange={setHistoryPage}
         />
       )}
 

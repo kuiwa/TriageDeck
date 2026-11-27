@@ -1,11 +1,13 @@
 import React from "react";
 import type { AlertHistoryView } from "../../../shared/api/types";
+import { Pagination } from "../../../shared/components/Pagination";
 
 interface HistoryTableProps {
   items: AlertHistoryView[];
   total: number;
   page: number;
   size: number;
+  onPageChange: (page: number) => void;
 }
 
 const severityClass = (severity: string): string => {
@@ -19,7 +21,7 @@ const severityClass = (severity: string): string => {
   }
 };
 
-export function HistoryTable({ items, total, page, size }: HistoryTableProps) {
+export function HistoryTable({ items, total, page, size, onPageChange }: HistoryTableProps) {
   return (
     <section className="alert-card" aria-labelledby="history-title">
       <div className="alert-card-header">
@@ -76,6 +78,15 @@ export function HistoryTable({ items, total, page, size }: HistoryTableProps) {
             )}
           </tbody>
         </table>
+      </div>
+      <div className="pagination-bar">
+        <Pagination
+          page={page}
+          size={size}
+          total={total}
+          onPageChange={onPageChange}
+          ariaLabel="历史告警分页"
+        />
       </div>
     </section>
   );

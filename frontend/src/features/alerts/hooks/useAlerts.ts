@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertHistoryView,
@@ -99,6 +100,7 @@ export function useAlerts(
   params: AlertsQueryParams = {},
   onUnauthorized?: () => Promise<string | null>,
   enabled: boolean = true,
+  pollWhileActive: boolean = enabled,
 ) {
   return useQuery({
     queryKey: ["alerts", "active", params],
@@ -117,7 +119,9 @@ export function useAlerts(
     },
     enabled: !!accessToken && enabled,
     staleTime: 10_000,
-    refetchInterval: enabled ? 30_000 : false,
+    refetchInterval: pollWhileActive ? 30_000 : false,
+    // 翻页时保留上一页数据，避免表格在请求期间闪成空表
+    placeholderData: (previousData) => previousData,
   });
 }
 
@@ -126,6 +130,7 @@ export function useHistoryAlerts(
   params: AlertsQueryParams = {},
   onUnauthorized?: () => Promise<string | null>,
   enabled: boolean = true,
+  pollWhileActive: boolean = enabled,
 ) {
   const queryClient = useQueryClient();
 
@@ -146,6 +151,30 @@ export function useHistoryAlerts(
     },
     enabled: !!accessToken && enabled,
     staleTime: 10_000,
-    refetchInterval: enabled ? 30_000 : false,
+    refetchInterval: pollWhileActive ? 30_000 : false,
+    // 翻页时保留上一页数据，避免表格在请求期间闪成空表
+    placeholderData: (previousData) => previousData,
   });
+}
+
+interface PagedData {
+  total: number;
+  size: number;
+}
+
+/**
+ * 当前页超出范围（比如清除了最后一页的最后一条告警）时自动回退到最后一页。
+ */
+export function usePageClamp(
+  page: number,
+  setPage: (page: number) => void,
+  data: PagedData | undefined,
+) {
+  useEffect(() => {
+    if (!data || page === 0) return;
+    const lastPage = Math.max(0, Math.ceil(data.total / Math.max(1, data.size)) - 1);
+    if (page > lastPage) {
+      setPage(lastPage);
+    }
+  }, [page, data, setPage]);
 }

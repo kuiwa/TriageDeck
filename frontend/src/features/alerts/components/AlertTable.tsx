@@ -1,5 +1,6 @@
 import React from "react";
 import type { AlertView } from "../../../shared/api/types";
+import { Pagination } from "../../../shared/components/Pagination";
 
 interface AlertsProps {
   items: AlertView[];
@@ -8,6 +9,7 @@ interface AlertsProps {
   size: number;
   canClear: boolean;
   onClear: (alertId: string, reason?: string | null) => Promise<void>;
+  onPageChange: (page: number) => void;
 }
 
 interface ClearDialogProps {
@@ -62,6 +64,7 @@ export function AlertTable({
   size,
   canClear,
   onClear,
+  onPageChange,
 }: AlertsProps) {
   const severityClass = (severity: string): string => {
     switch (severity) {
@@ -168,6 +171,15 @@ export function AlertTable({
             )}
           </tbody>
         </table>
+      </div>
+      <div className="pagination-bar">
+        <Pagination
+          page={page}
+          size={size}
+          total={total}
+          onPageChange={onPageChange}
+          ariaLabel="活动告警分页"
+        />
       </div>
       {clearDialog && (
         <ClearDialog
