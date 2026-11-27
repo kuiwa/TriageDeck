@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { userManager } from "./auth/userManager";
+import {
+  KEYCLOAK_ACCOUNT_PASSWORD_URL,
+  KEYCLOAK_ACCOUNT_PROFILE_URL,
+  KEYCLOAK_ADMIN_CONSOLE_URL,
+} from "./auth/keycloakUrls";
 import { getWhoami, type WhoAmI } from "./shared/api/apiClient";
 import type { User } from "oidc-client-ts";
 import { AlertTable } from "./features/alerts/components/AlertTable";
@@ -208,6 +213,32 @@ export function App() {
             {" · "}
             {whoami.data?.roles.join(", ") || "viewer"}
           </span>
+          <div className="topbar-account-links">
+            <a
+              className="button button-secondary"
+              href={KEYCLOAK_ACCOUNT_PROFILE_URL}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Profile
+            </a>
+            <a
+              className="button button-secondary"
+              href={KEYCLOAK_ACCOUNT_PASSWORD_URL}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Password
+            </a>
+            <a
+              className="button button-secondary"
+              href={KEYCLOAK_ADMIN_CONSOLE_URL}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Keycloak Admin console
+            </a>
+          </div>
           <button
             onClick={() => void userManager.signoutRedirect()}
             className="button button-quiet"

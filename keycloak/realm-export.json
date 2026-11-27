@@ -57,7 +57,8 @@
       "lastName": "Operator",
       "emailVerified": true,
       "credentials": [{ "type": "password", "value": "operator", "temporary": false }],
-      "realmRoles": ["operator"]
+      "realmRoles": ["operator"],
+      "clientRoles": { "account": ["view-profile", "manage-account"] }
     },
     {
       "username": "viewer",
@@ -67,7 +68,8 @@
       "lastName": "Viewer",
       "emailVerified": true,
       "credentials": [{ "type": "password", "value": "viewer", "temporary": false }],
-      "realmRoles": ["viewer"]
+      "realmRoles": ["viewer"],
+      "clientRoles": { "account": ["view-profile", "manage-account"] }
     },
     {
       "username": "service-account-ingest-service",
