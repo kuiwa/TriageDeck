@@ -1,9 +1,11 @@
 import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  AlertDetailView,
   AlertHistoryView,
   AlertView,
 } from "../../../shared/api/types";
+import { getAlertDetail } from "../../../shared/api/apiClient";
 
 export interface AlertsQueryParams {
   page?: number;
@@ -154,6 +156,23 @@ export function useHistoryAlerts(
     refetchInterval: pollWhileActive ? 30_000 : false,
     // 翻页时保留上一页数据，避免表格在请求期间闪成空表
     placeholderData: (previousData) => previousData,
+  });
+}
+
+export function useAlertDetail(
+  accessToken: string | null,
+  id: string | null,
+  enabled: boolean = true
+) {
+  return useQuery<AlertDetailView>({
+    queryKey: ["alerts", "detail", id ?? ""],
+    queryFn: async () => {
+      if (!id) throw new Error("NO_ALERT_ID");
+      if (!accessToken) throw new Error("NO_TOKEN");
+      return await getAlertDetail(accessToken, id);
+    },
+    enabled: !!accessToken && enabled && !!id,
+    staleTime: 10_000,
   });
 }
 

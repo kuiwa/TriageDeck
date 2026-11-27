@@ -11,8 +11,17 @@ import type { User } from "oidc-client-ts";
 import { MOCK_WHOAMI } from "./shared/mockData";
 import { AlertTable } from "./features/alerts/components/AlertTable";
 import { HistoryTable } from "./features/alerts/components/HistoryTable";
+import { AlertDetailPanel } from "./features/alerts/components/AlertDetailPanel";
+import { AuditTable } from "./features/audit/components/AuditTable";
+import { AiQueryPanel } from "./features/ai/components/AiQueryPanel";
 import { SeverityDashboard } from "./features/alerts/components/SeverityDashboard";
-import { useAlerts, clearAlert, useHistoryAlerts, usePageClamp } from "./features/alerts/hooks/useAlerts";
+import {
+  useAlerts,
+  clearAlert,
+  useHistoryAlerts,
+  usePageClamp,
+  useAlertDetail,
+} from "./features/alerts/hooks/useAlerts";
 import { useSeveritySummary } from "./features/alerts/hooks/useSeveritySummary";
 import { useMockAlerts, useMockHistoryAlerts } from "./features/alerts/hooks/useMockAlerts";
 
@@ -50,6 +59,8 @@ export function App() {
   const [activePage, setActivePage] = useState(0);
   const [historyPage, setHistoryPage] = useState(0);
   const [clearMessage, setClearMessage] = useState<string | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [activeView, setActiveView] = useState<"alerts" | "audit" | "ai">("alerts");
   useEffect(() => {
     let active = true;
     void initializeAuthentication()
@@ -81,7 +92,7 @@ export function App() {
       return null;
     },
     Boolean(user?.access_token),
-    activeTab === "active", // 仅活动告警tab激活时轮询
+    activeView === "alerts" && activeTab === "active", // 仅活动告警视图激活时轮询
   );
 
   // token 失效且无法静默续签时，重定向到 Keycloak 重新登录
@@ -107,7 +118,12 @@ export function App() {
       return null;
     },
     Boolean(user?.access_token),
-    activeTab === "history", // 仅历史告警tab激活时轮询
+    activeView === "alerts" && activeTab === "history", // 仅历史告警视图激活时轮询
+  );
+  const detailQuery = useAlertDetail(
+    user?.access_token ?? null,
+    detailId,
+    Boolean(user?.access_token)
   );
 
   // 顶部实时分布看板：复用 #1，按级别各取一次 size=1 的 total（不改接口契约）
@@ -270,23 +286,57 @@ export function App() {
         <div className="tab-group" role="tablist" aria-label="告警标签页">
           <button
             role="tab"
-            aria-selected={activeTab === "active"}
-            className={`tab-button ${activeTab === "active" ? "tab-active" : ""}`}
-            onClick={() => setActiveTab("active")}
+            aria-selected={activeView === "alerts" && activeTab === "active"}
+            className={`tab-button ${
+              activeView === "alerts" && activeTab === "active" ? "tab-active" : ""
+            }`}
+            onClick={() => {
+              setActiveView("alerts");
+              setActiveTab("active");
+              setDetailId(null);
+            }}
           >
             活动告警
             {alerts.data && <span className="tab-count">{alerts.data.total}</span>}
           </button>
           <button
             role="tab"
-            aria-selected={activeTab === "history"}
-            className={`tab-button ${activeTab === "history" ? "tab-active" : ""}`}
-            onClick={() => setActiveTab("history")}
+            aria-selected={activeView === "alerts" && activeTab === "history"}
+            className={`tab-button ${
+              activeView === "alerts" && activeTab === "history" ? "tab-active" : ""
+            }`}
+            onClick={() => {
+              setActiveView("alerts");
+              setActiveTab("history");
+              setDetailId(null);
+            }}
           >
             历史告警
             {historyAlerts.data && (
               <span className="tab-count">{historyAlerts.data.total}</span>
             )}
+          </button>
+          <button
+            role="tab"
+            aria-selected={activeView === "audit"}
+            className={`tab-button ${activeView === "audit" ? "tab-active" : ""}`}
+            onClick={() => {
+              setActiveView("audit");
+              setDetailId(null);
+            }}
+          >
+            审计时间线
+          </button>
+          <button
+            role="tab"
+            aria-selected={activeView === "ai"}
+            className={`tab-button ${activeView === "ai" ? "tab-active" : ""}`}
+            onClick={() => {
+              setActiveView("ai");
+              setDetailId(null);
+            }}
+          >
+            AI 查询
           </button>
         </div>
       </section>
@@ -295,24 +345,52 @@ export function App() {
         <div className="clear-message">{clearMessage}</div>
       )}
 
-      {activeTab === "active" ? (
-        <AlertTable
-          items={alerts.data?.items ?? []}
-          total={alerts.data?.total ?? 0}
-          page={activePage}
-          size={alerts.data?.size ?? PAGE_SIZE}
-          canClear={canClear}
-          onClear={handleClear}
-          onPageChange={setActivePage}
-        />
+      {activeView === "audit" ? (
+        <AuditTable accessToken={user?.access_token ?? null} />
+      ) : activeView === "ai" ? (
+        <AiQueryPanel accessToken={user?.access_token ?? null} />
+      ) : detailId !== null ? (
+        <section className="detail-view">
+          {detailQuery.isError && (
+            <div className="error-toast">
+              加载详情失败：{detailQuery.error.message}
+              <button
+                type="button"
+                className="button button-quiet button-small"
+                onClick={() => setDetailId(null)}
+              >
+                返回
+              </button>
+            </div>
+          )}
+          {detailQuery.data && (
+            <AlertDetailPanel
+              detail={detailQuery.data}
+              onBack={() => setDetailId(null)}
+            />
+          )}
+        </section>
       ) : (
-        <HistoryTable
-          items={historyAlerts.data?.items ?? []}
-          total={historyAlerts.data?.total ?? 0}
-          page={historyPage}
-          size={historyAlerts.data?.size ?? PAGE_SIZE}
-          onPageChange={setHistoryPage}
-        />
+        activeTab === "active" ? (
+          <AlertTable
+            items={alerts.data?.items ?? []}
+            total={alerts.data?.total ?? 0}
+            page={activePage}
+            size={alerts.data?.size ?? PAGE_SIZE}
+            canClear={canClear}
+            onClear={handleClear}
+            onPageChange={setActivePage}
+            onRowClick={setDetailId}
+          />
+        ) : (
+          <HistoryTable
+            items={historyAlerts.data?.items ?? []}
+            total={historyAlerts.data?.total ?? 0}
+            page={historyPage}
+            size={historyAlerts.data?.size ?? PAGE_SIZE}
+            onPageChange={setHistoryPage}
+          />
+        )
       )}
 
       {whoami.data && (

@@ -11,6 +11,8 @@ interface AlertsProps {
   canClear: boolean;
   onClear: (alertId: string, reason?: string | null) => Promise<void>;
   onPageChange: (page: number) => void;
+  /** 点击行进入详情页 */
+  onRowClick?: (alertId: string) => void;
 }
 
 interface ClearDialogProps {
@@ -66,6 +68,7 @@ export function AlertTable({
   canClear,
   onClear,
   onPageChange,
+  onRowClick,
 }: AlertsProps) {
   const [clearDialog, setClearDialog] = React.useState<{
     open: boolean;
@@ -128,7 +131,11 @@ export function AlertTable({
               </tr>
             ) : (
               items.map((alert) => (
-                <tr key={alert.fingerprint}>
+                <tr
+                  key={alert.fingerprint}
+                  onClick={() => onRowClick?.(alert.id)}
+                  className={onRowClick ? "row-clickable" : undefined}
+                >
                   <td className="cell-mono cell-id">
                     {alert.id}
                   </td>
@@ -147,7 +154,8 @@ export function AlertTable({
                     <td className="cell-action">
                       <button
                         className="button button-quiet button-small"
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setClearDialog({ open: true, alertId: alert.id });
                         }}
                         disabled={!!clearDialog}
