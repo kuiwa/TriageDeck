@@ -39,6 +39,21 @@ React 19 + TypeScript + Vite + TanStack Query + Tailwind。
 
 前端默认访问 `http://localhost:5173`。启动脚本可从任意工作目录调用；停止前端按 `Ctrl+C`，停止容器运行 `docker compose down`（不要加 `-v`，以保留 PostgreSQL 数据）。
 
+## 静态演示模式（无需后端，适合 Cloudflare Pages 等纯静态托管）
+
+设置环境变量 `VITE_MOCK_MODE=true` 后，前端跳过 Keycloak 登录，直接使用内置模拟数据渲染告警列表与严重度看板，适合离线静态展示：
+
+```bash
+cd frontend
+VITE_MOCK_MODE=true npm run dev   # 开发模式，访问 http://localhost:5173
+VITE_MOCK_MODE=true npm run build # 生产构建，产物在 frontend/dist，可部署到任意静态托管
+```
+
+模拟模式下：
+- 不需要 Keycloak、PostgreSQL、Kafka 等后端服务；
+- 顶部显示"模拟演示模式"徽标，并标注"模拟数据"；
+- 清除操作被禁用（仅演示，不执行真实状态变更）。
+
 ## 快速开始（T13 完成后填实；当前命令仅为目标态）
 
 ```bash
