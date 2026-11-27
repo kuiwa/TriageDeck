@@ -11,7 +11,8 @@ spring:
     baseline-on-migrate: false
     validate-on-migrate: true
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
+    # 本地开发默认连 Homebrew Kafka；容器场景由 compose 的 KAFKA_BOOTSTRAP_SERVERS=kafka:9092 覆盖
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
       group-id: triagedeck-alert-ingest
       auto-offset-reset: earliest

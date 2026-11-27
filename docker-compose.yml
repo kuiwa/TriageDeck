@@ -21,9 +21,10 @@ services:
       KAFKA_NODE_ID: 0
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_CONTROLLER_QUORUM_VOTERS: 0@kafka:9093
-      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      # 两个监听：PLAINTEXT 给容器内（app → kafka:9092），EXTERNAL 给宿主机工具（localhost:19092）
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:19092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:19092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
@@ -33,7 +34,8 @@ services:
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
     ports:
-      - "9092:9092"
+      # 只暴露 EXTERNAL 监听器；宿主 9092 留给 Homebrew Kafka，两者不再抢端口
+      - "19092:19092"
     healthcheck:
       # 注意：不要用 /opt/kafka/bin/kafka-broker-api-versions.sh 做健康检查。
       # 该脚本每次都会冷启动一个 JVM，本地实测单次耗时约 30s，远超 timeout，
@@ -53,11 +55,25 @@ services:
     entrypoint: ["/bin/bash", "-c"]
     command:
       - |
-        set -euo pipefail
-        for topic in alert.ingested alert.cleared alert.ingested.dlt alert.cleared.dlt; do
-          /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 \
-            --create --if-not-exists --topic "$$topic" --partitions 1 --replication-factor 1
+        set -uo pipefail
+        for attempt in $$(seq 1 30); do
+          ok=1
+          for topic in alert.ingested alert.cleared alert.ingested.dlt alert.cleared.dlt; do
+            if ! /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 \
+                 --create --if-not-exists --topic "$$topic" --partitions 1 --replication-factor 1 >/dev/null 2>&1; then
+              ok=0
+            fi
+          done
+          if [ "$$ok" -eq 1 ]; then
+            echo "topics ready:"
+            /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list
+            exit 0
+          fi
+          echo "attempt $$attempt: broker/controller not ready, retry in 5s"
+          sleep 5
         done
+        echo "failed to create topics after retries" >&2
+        exit 1
 
   keycloak:
     image: quay.io/keycloak/keycloak:26.0

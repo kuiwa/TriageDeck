@@ -201,6 +201,9 @@ m = r.sub == p.sub && r.obj == p.obj && r.act == p.act
 | `alert.cleared.dlt` | 消费失败处理 | 人工排查 | 原 key | 同上 |
 
 分区数 1（单节点）；`auto.create.topics.enable=false`，topic 由 compose 初始化脚本显式创建。
+compose 的 kafka 有两个监听器：容器内 `PLAINTEXT://kafka:9092`、宿主 `EXTERNAL://localhost:19092`（映射 19092）。
+本地开发（app/模拟器跑在宿主机）用 Homebrew Kafka 的 9092，topic 用 `scripts/create-kafka-topics.sh` 显式创建；
+全栈容器时宿主工具投消息用 `--bootstrap=localhost:19092`——两者是同一集群的两个接入点。
 
 ### 5.2 事件契约归属
 
