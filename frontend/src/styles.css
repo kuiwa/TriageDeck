@@ -341,6 +341,98 @@ textarea:focus-visible {
   box-shadow: 0 0 0 3px rgb(24 161 131 / 13%);
 }
 
+.severity-dashboard {
+  margin: 24px 2px 0;
+  padding: 20px 22px 22px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+.severity-dashboard-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.severity-dashboard-head .eyebrow {
+  margin-bottom: 5px;
+}
+
+.severity-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 12px;
+  margin: 18px 0 0;
+}
+
+.severity-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 7px;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--card-accent, #cbd5e1);
+  border-radius: 12px;
+  background: linear-gradient(180deg, var(--card-tint, #f8fafc) 0%, #fff 76%);
+}
+
+.severity-card-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0;
+  color: #47596f;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.severity-card-enum {
+  color: #8494a6;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+}
+
+.severity-card-count {
+  margin: 0;
+  color: var(--card-accent, #33475f);
+  font-size: 26px;
+  font-weight: 720;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.severity-card[data-severity="CRITICAL"] {
+  --card-accent: #a52e28;
+  --card-tint: #fff1f0;
+}
+
+.severity-card[data-severity="HIGH"] {
+  --card-accent: #9c4a0b;
+  --card-tint: #fff6ec;
+}
+
+.severity-card[data-severity="MEDIUM"] {
+  --card-accent: #80610a;
+  --card-tint: #fffbe9;
+}
+
+.severity-card[data-severity="LOW"] {
+  --card-accent: #285d9b;
+  --card-tint: #eff6ff;
+}
+
+.severity-card[data-severity="INFO"] {
+  --card-accent: #536579;
+  --card-tint: #f4f7fa;
+}
+
 .alert-card,
 .profile-card,
 .state-card {
@@ -705,6 +797,22 @@ textarea:focus-visible {
     padding: 17px;
   }
 
+  .severity-dashboard {
+    padding: 16px;
+  }
+
+  .severity-grid {
+    gap: 10px;
+  }
+
+  .severity-card {
+    padding: 12px 13px;
+  }
+
+  .severity-card-count {
+    font-size: 22px;
+  }
+
   .pagination-bar {
     justify-content: center;
     padding: 10px 12px;
@@ -740,6 +848,11 @@ textarea:focus-visible {
   .dashboard-heading {
     flex-direction: column;
     gap: 12px;
+  }
+
+  .severity-dashboard-head {
+    flex-direction: column;
+    gap: 10px;
   }
 
   .live-indicator {

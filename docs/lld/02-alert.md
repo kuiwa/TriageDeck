@@ -147,6 +147,8 @@ limit :size offset :offset;
 索引对应关系：`idx_alerts_active_sort`（默认页）、`idx_alerts_active_source`、`idx_alerts_active_lastseen`、`idx_alerts_history_cleared`、`idx_alerts_history_cleared_by`、`idx_alerts_history_source`。
 关键字查询无专用索引（`ILIKE` 全扫），T07 用 10 万行实测，>1s 才评估 `pg_trgm`（需 ADR）。
 
+级别计数看板（US-B8，前端增量，不新增端点）：复用 `#1`，按 `severity` 各查一次 `page=0&size=1`，只读返回的 `total`（服务端 count 查询，WHERE 条件与列表一致）；前端每 10 秒刷新，清除告警后立即重新取数。
+
 ## 4. 关键时序
 
 ### 4.1 摄入去重（HTTP 与 Kafka 同一条路径）

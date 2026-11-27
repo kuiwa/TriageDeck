@@ -1,6 +1,7 @@
 import React from "react";
 import type { AlertView } from "../../../shared/api/types";
 import { Pagination } from "../../../shared/components/Pagination";
+import { severityClass } from "../../../shared/severity";
 
 interface AlertsProps {
   items: AlertView[];
@@ -66,17 +67,6 @@ export function AlertTable({
   onClear,
   onPageChange,
 }: AlertsProps) {
-  const severityClass = (severity: string): string => {
-    switch (severity) {
-      case "CRITICAL": return "severity-critical";
-      case "HIGH": return "severity-high";
-      case "MEDIUM": return "severity-medium";
-      case "LOW": return "severity-low";
-      case "INFO": return "severity-info";
-      default: return "severity-default";
-    }
-  };
-
   const [clearDialog, setClearDialog] = React.useState<{
     open: boolean;
     alertId: string;

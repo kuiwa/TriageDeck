@@ -1,6 +1,7 @@
 import React from "react";
 import type { AlertHistoryView } from "../../../shared/api/types";
 import { Pagination } from "../../../shared/components/Pagination";
+import { severityClass } from "../../../shared/severity";
 
 interface HistoryTableProps {
   items: AlertHistoryView[];
@@ -9,17 +10,6 @@ interface HistoryTableProps {
   size: number;
   onPageChange: (page: number) => void;
 }
-
-const severityClass = (severity: string): string => {
-  switch (severity) {
-    case "CRITICAL": return "severity-critical";
-    case "HIGH": return "severity-high";
-    case "MEDIUM": return "severity-medium";
-    case "LOW": return "severity-low";
-    case "INFO": return "severity-info";
-    default: return "severity-default";
-  }
-};
 
 export function HistoryTable({ items, total, page, size, onPageChange }: HistoryTableProps) {
   return (

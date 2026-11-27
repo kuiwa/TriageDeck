@@ -5,7 +5,9 @@ import { getWhoami, type WhoAmI } from "./shared/api/apiClient";
 import type { User } from "oidc-client-ts";
 import { AlertTable } from "./features/alerts/components/AlertTable";
 import { HistoryTable } from "./features/alerts/components/HistoryTable";
+import { SeverityDashboard } from "./features/alerts/components/SeverityDashboard";
 import { useAlerts, clearAlert, useHistoryAlerts, usePageClamp } from "./features/alerts/hooks/useAlerts";
+import { useSeveritySummary } from "./features/alerts/hooks/useSeveritySummary";
 
 let authenticationInitialization: Promise<User | null> | undefined;
 
@@ -95,6 +97,12 @@ export function App() {
     activeTab === "history", // 仅历史告警tab激活时轮询
   );
 
+  // 顶部实时分布看板：复用 #1，按级别各取一次 size=1 的 total（不改接口契约）
+  const severitySummary = useSeveritySummary(
+    user?.access_token ?? null,
+    Boolean(user?.access_token),
+  );
+
   usePageClamp(activePage, setActivePage, alerts.data);
   usePageClamp(historyPage, setHistoryPage, historyAlerts.data);
 
@@ -131,10 +139,12 @@ export function App() {
       setClearMessage("该告警已被其他用户清除");
       await alerts.refetch();
       await historyAlerts.refetch();
+      await severitySummary.refetch();
     } else if (result.success) {
       setClearMessage("告警已清除");
       await alerts.refetch();
       await historyAlerts.refetch();
+      await severitySummary.refetch();
     }
   };
 
@@ -206,6 +216,11 @@ export function App() {
           </button>
         </div>
       </nav>
+
+      <SeverityDashboard
+        summary={severitySummary.data}
+        unavailable={severitySummary.isError}
+      />
 
       <section className="dashboard-heading" aria-labelledby="dashboard-title">
         <div>

@@ -5,7 +5,7 @@ import {
   AlertView,
 } from "../../../shared/api/types";
 
-interface AlertsQueryParams {
+export interface AlertsQueryParams {
   page?: number;
   size?: number;
   severity?: string;
@@ -15,7 +15,7 @@ interface AlertsQueryParams {
   to?: string;
 }
 
-async function fetchAlerts(
+export async function fetchAlerts(
   accessToken: string | null,
   params: AlertsQueryParams = {},
 ): Promise<{ items: AlertView[]; total: number; page: number; size: number }> {
