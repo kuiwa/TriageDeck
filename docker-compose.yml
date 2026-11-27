@@ -33,10 +33,15 @@ services:
     ports:
       - "9092:9092"
     healthcheck:
-      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1"]
-      interval: 10s
-      timeout: 10s
-      retries: 10
+      # 注意：不要用 /opt/kafka/bin/kafka-broker-api-versions.sh 做健康检查。
+      # 该脚本每次都会冷启动一个 JVM，本地实测单次耗时约 30s，远超 timeout，
+      # 会被 docker 判为 "Health check exceeded timeout"，累计失败后容器标记 unhealthy，
+      # 导致 docker compose up --wait 直接失败。这里改为轻量 TCP 探测 broker 端口。
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/9092'"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 90s
 
   keycloak:
     image: quay.io/keycloak/keycloak:26.0
