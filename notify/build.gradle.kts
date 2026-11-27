@@ -12,7 +12,6 @@ dependencies {
     implementation(libs.spring.boot.data.jpa)
     implementation(libs.spring.kafka)
     implementation(project(":platform"))
-    implementation(project(":audit"))
     testImplementation(libs.spring.boot.test)
     testRuntimeOnly(libs.postgresql)
     testRuntimeOnly(libs.junit.platform.launcher)

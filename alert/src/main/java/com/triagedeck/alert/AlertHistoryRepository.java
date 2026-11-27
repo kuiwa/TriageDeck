@@ -31,8 +31,21 @@ public class AlertHistoryRepository {
               returning id
             )
             delete from alerts_active a using moved m where a.id = m.id
-            returning a.id
+            returning a.id, a.fingerprint, a.severity, a.source, a.type,
+                      a.resource_id, a.occurrence_count, now() as cleared_at
             """;
+
+    /** 清除时需要的快照字段，用于在事务提交后发 `alert.cleared`（02b-contract §6.3）。 */
+    public record ClearedAlert(
+            UUID id,
+            String fingerprint,
+            String severity,
+            String source,
+            String type,
+            String resourceId,
+            int occurrenceCount,
+            java.time.Instant clearedAt) {
+    }
 
     private static final String EXISTS_BY_ID_SQL =
             "SELECT count(*) FROM alerts_history WHERE id = :id";
@@ -51,18 +64,26 @@ public class AlertHistoryRepository {
 
     /**
      * Atomically moves the active alert to history (LLD 02-alert §3.2).
-     * Returns true when a row was moved; false when nothing moved
+     * Returns the moved row's snapshot when a row was moved; empty when nothing moved
      * (id absent from active or already present in history).
      */
-    public boolean clear(UUID id, String actor, String reason) {
+    public Optional<ClearedAlert> clear(UUID id, String actor, String reason) {
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("id", id)
                 .addValue("clearedBy", actor != null && !actor.isBlank() ? actor : "SYSTEM")
                 .addValue("clearedReason", reason);
 
-        List<UUID> moved = jdbc.query(CLEAR_SQL, params,
-                (rs, rowNum) -> rs.getObject("id", UUID.class));
-        return !moved.isEmpty();
+        List<ClearedAlert> moved = jdbc.query(CLEAR_SQL, params,
+                (rs, rowNum) -> new ClearedAlert(
+                        rs.getObject("id", UUID.class),
+                        rs.getString("fingerprint"),
+                        rs.getString("severity"),
+                        rs.getString("source"),
+                        rs.getString("type"),
+                        rs.getString("resource_id"),
+                        rs.getInt("occurrence_count"),
+                        rs.getTimestamp("cleared_at").toInstant()));
+        return moved.stream().findFirst();
     }
 
     public boolean existsById(UUID id) {

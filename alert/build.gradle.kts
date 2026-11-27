@@ -11,6 +11,7 @@ dependencies {
     implementation(libs.spring.boot.web)
     implementation(libs.spring.boot.validation)
     implementation(libs.spring.boot.data.jpa)
+    implementation(libs.spring.kafka)
     implementation(project(":platform"))
     testImplementation(libs.spring.boot.test)
     testImplementation(libs.testcontainers.postgresql)

@@ -15,8 +15,15 @@ spring:
     consumer:
       group-id: triagedeck-alert-ingest
       auto-offset-reset: earliest
+      # 由监听器容器提交；消费方法里的事务回滚 → 位点不前进
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
     producer:
       retries: 3
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      # 应用层用 Jackson 解析，序列化失败可控、便于 DLT
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
   security:
     oauth2:
       resourceserver:

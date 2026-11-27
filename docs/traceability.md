@@ -11,7 +11,7 @@
 | A3 | 角色差异 | 本期 | §4.3 §4.4 | `lld/01 §2 §5` | #11 #12 | — | `WhoamiIT` `PermissionCheckIT` / T03 |
 | A4 | 后端拦截越权 | 本期 | §4 §6.1 | `lld/01 §4.2 §7` | #4 #12 | `audit_event` | `AccessDeniedAuditIT` / T03 T08 |
 | A5 | 授权可配置 | 本期 | §4.1 §4.4 | `lld/01 §3 §4.3` | #12 | — | `PermissionServiceTest` `PermissionCheckIT` / T03 |
-| B1 | 双入口上报 | 本期 | §2.5 §5.1 | `lld/02 §4.1`、`lld/05 §4.1` | #5 | `alerts_active` `alert_event` | `AlertIngestIT` `KafkaIngestIT` / T04 T10 |
+| B1 | 双入口上报 | 本期 | §2.5 §5.1 | `lld/02 §4.1`、`lld/05 §4.1` | #5 | `alerts_active` `alert_event` | `AlertKafkaConsumerServiceTest` `NotificationConsumerServiceTest` `DomainEventBusTest` / T04 T10 |
 | B2 | 去重聚合 | 本期 | §2.5 | `lld/02 §3.1 §4.1 §4.2` | #5 #3 | `alerts_active` `alert_event` | `AlertIngestIT` `FingerprintTest` / T04 |
 | B3 | 活动列表 | 本期 | §3(#1) §2.1 | `lld/02 §3.3 §5` | #1 | `alerts_active` | `ActiveListIT` / T05 |
 | B4 | 告警详情 | 本期 | §3(#3) §2.4 | `lld/02 §3.3 §5` | #3 | `alert_event` | `AlertDetailIT` / T05 |
