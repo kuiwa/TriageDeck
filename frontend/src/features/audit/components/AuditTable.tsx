@@ -292,6 +292,7 @@ export function AuditTable({ accessToken }: AuditTableProps) {
 function defaultFrom(): string {
   const d = new Date();
   d.setDate(d.getDate() - 7);
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
   return d.toISOString().slice(0, 16);
 }
 

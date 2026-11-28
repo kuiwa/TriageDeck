@@ -22,6 +22,7 @@ import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.UUID;
@@ -71,16 +72,23 @@ public class AuditController {
             @RequestParam(value = "size", defaultValue = "20") int size) {
 
         String traceId = traceIds.current();
-        Instant to = (toStr != null && !toStr.isBlank()) ? Instant.parse(toStr) : null;
-        Instant fromInstant = Instant.parse(from);
+        Instant fromInstant;
+        Instant to;
+        try {
+            fromInstant = parseInstantTolerant(from);
+            to = (toStr != null && !toStr.isBlank()) ? parseInstantTolerant(toStr) : null;
+        } catch (DateTimeParseException e) {
+            return validationError("时间格式不合法，应为 ISO-8601（如 2026-11-21T05:54:00Z）");
+        }
 
         Instant maxTo = fromInstant.plus(MAX_SPAN_DAYS, ChronoUnit.DAYS);
         if (to != null && to.isAfter(maxTo)) {
             to = maxTo;
         }
 
-        List<AuditEventView> items = auditRepository.findByCriteria(from, to, actor, actions, outcomes, page, size);
-        int total = auditRepository.countByCriteria(from, to, actor, actions, outcomes);
+        String fromNorm = fromInstant.toString();
+        List<AuditEventView> items = auditRepository.findByCriteria(fromNorm, to, actor, actions, outcomes, page, size);
+        int total = auditRepository.countByCriteria(fromNorm, to, actor, actions, outcomes);
 
         List<Map<String, Object>> sanitizedItems = items.stream()
                 .map(e -> {
@@ -129,29 +137,31 @@ public class AuditController {
             HttpServletResponse response) throws Exception {
 
         String traceId = traceIds.current();
-        Instant to = (toStr != null && !toStr.isBlank()) ? Instant.parse(toStr) : null;
-        Instant fromInstant = Instant.parse(from);
+        Instant fromInstant;
+        Instant to;
+        try {
+            fromInstant = parseInstantTolerant(from);
+            to = (toStr != null && !toStr.isBlank()) ? parseInstantTolerant(toStr) : null;
+        } catch (DateTimeParseException e) {
+            writeJsonError(response, HttpStatus.BAD_REQUEST, "VALIDATION_FAILED",
+                    "时间格式不合法，应为 ISO-8601（如 2026-11-21T05:54:00Z）", traceId);
+            return;
+        }
 
         Instant maxTo = fromInstant.plus(MAX_SPAN_DAYS, ChronoUnit.DAYS);
         if (to != null && to.isAfter(maxTo)) {
             to = maxTo;
         }
 
-        int count = auditRepository.countForExportLimit(from, to, actor, actions, outcomes);
+        String fromNorm = fromInstant.toString();
+        int count = auditRepository.countForExportLimit(fromNorm, to, actor, actions, outcomes);
         if (count > MAX_EXPORT_ROWS) {
-            response.setStatus(HttpStatus.UNPROCESSABLE_ENTITY.value());
-            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-            response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-            Map<String, Object> error = new LinkedHashMap<>();
-            error.put("code", "EXPORT_TOO_LARGE");
-            error.put("message", "导出行数超过 " + MAX_EXPORT_ROWS + " 限制");
-            error.put("traceId", traceId);
-            new com.fasterxml.jackson.databind.ObjectMapper()
-                    .writeValue(response.getWriter(), error);
+            writeJsonError(response, HttpStatus.UNPROCESSABLE_ENTITY, "EXPORT_TOO_LARGE",
+                    "导出行数超过 " + MAX_EXPORT_ROWS + " 限制", traceId);
             return;
         }
 
-        List<AuditEventView> items = auditRepository.findByCriteria(from, to, actor, actions, outcomes, 0, Integer.MAX_VALUE);
+        List<AuditEventView> items = auditRepository.findByCriteria(fromNorm, to, actor, actions, outcomes, 0, Integer.MAX_VALUE);
 
         response.setStatus(HttpStatus.OK.value());
         response.setContentType("text/csv; charset=utf-8");
@@ -203,5 +213,47 @@ public class AuditController {
             return "\"" + value.replace("\"", "\"\"") + "\"";
         }
         return value;
+    }
+
+    /**
+     * 容错解析时间：支持完整 ISO instant（...Z）、带偏移（+08:00）、以及
+     * datetime-local（无时区，按 UTC 处理）。
+     */
+    static Instant parseInstantTolerant(String value) {
+        if (value == null || value.isBlank()) {
+            throw new DateTimeParseException("blank instant", "", 0);
+        }
+        String v = value.trim();
+        try {
+            return Instant.parse(v);
+        } catch (DateTimeParseException ignored) {
+            try {
+                return java.time.OffsetDateTime.parse(v).toInstant();
+            } catch (DateTimeParseException ignored2) {
+                return java.time.LocalDateTime.parse(v)
+                        .atZone(ZoneOffset.UTC)
+                        .toInstant();
+            }
+        }
+    }
+
+    private ResponseEntity<Map<String, Object>> validationError(String message) {
+        Map<String, Object> error = new LinkedHashMap<>();
+        error.put("code", "VALIDATION_FAILED");
+        error.put("message", message);
+        error.put("traceId", traceIds.current());
+        return ResponseEntity.badRequest().body(error);
+    }
+
+    private void writeJsonError(HttpServletResponse response, HttpStatus status,
+                                String code, String message, String traceId) throws Exception {
+        response.setStatus(status.value());
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        Map<String, Object> error = new LinkedHashMap<>();
+        error.put("code", code);
+        error.put("message", message);
+        error.put("traceId", traceId);
+        new com.fasterxml.jackson.databind.ObjectMapper().writeValue(response.getWriter(), error);
     }
 }

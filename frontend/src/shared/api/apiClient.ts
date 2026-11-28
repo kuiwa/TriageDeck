@@ -52,8 +52,8 @@ export async function getAuditEvents(
   params: AuditQueryParams
 ): Promise<AuditEventPage> {
   const searchParams = new URLSearchParams();
-  searchParams.set("from", params.from);
-  if (params.to) searchParams.set("to", params.to);
+  searchParams.set("from", toIsoUtc(params.from));
+  if (params.to) searchParams.set("to", toIsoUtc(params.to));
   if (params.actor) searchParams.set("actor", params.actor);
   if (params.action?.length) {
     params.action.forEach((a) => searchParams.append("action", a));
@@ -87,8 +87,8 @@ export async function exportAuditEvents(
   params: AuditQueryParams
 ): Promise<void> {
   const searchParams = new URLSearchParams();
-  searchParams.set("from", params.from);
-  if (params.to) searchParams.set("to", params.to);
+  searchParams.set("from", toIsoUtc(params.from));
+  if (params.to) searchParams.set("to", toIsoUtc(params.to));
   if (params.actor) searchParams.set("actor", params.actor);
   if (params.action?.length) {
     params.action.forEach((a) => searchParams.append("action", a));
@@ -261,4 +261,13 @@ function parseSseFrame(frame: string): { event?: string; data?: string } {
     }
   }
   return { event, data: dataLines.length > 0 ? dataLines.join("\n") : undefined };
+}
+
+/**
+ * datetime-local 值（如 2026-11-21T05:54，按本地时区解释）→ ISO-8601 UTC（带 Z）。
+ * 已是 ISO 字符串时也会被规范化；解析失败则原样返回。
+ */
+function toIsoUtc(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toISOString();
 }
