@@ -16,6 +16,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.Instant;
@@ -170,13 +172,13 @@ public class KeycloakEventCollector {
         }
         String tokenUrl = keycloakBaseUrl + "/realms/" + realm
                 + "/protocol/openid-connect/token";
-        Map<String, String> body = new LinkedHashMap<>();
-        body.put("grant_type", "client_credentials");
-        body.put("client_id", clientId);
-        body.put("client_secret", clientSecret);
+        MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
+        body.add("grant_type", "client_credentials");
+        body.add("client_id", clientId);
+        body.add("client_secret", clientSecret);
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-        HttpEntity<Map<String, String>> request = new HttpEntity<>(body, headers);
+        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(body, headers);
         ResponseEntity<Map> response = restTemplate.postForEntity(tokenUrl, request, Map.class);
         Map<String, Object> tokenResponse = response.getBody();
         if (tokenResponse == null || tokenResponse.get("access_token") == null) {
