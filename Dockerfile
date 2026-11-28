@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 FROM gradle:8.14.1-jdk21 AS build
 WORKDIR /home/gradle/src
 COPY --chown=gradle:gradle gradle gradle
@@ -11,7 +12,7 @@ COPY --chown=gradle:gradle ai ai
 COPY --chown=gradle:gradle notify notify
 COPY --chown=gradle:gradle app app
 COPY --chown=gradle:gradle tools tools
-RUN gradle :app:bootJar --no-daemon
+RUN --mount=type=cache,target=/home/gradle/.gradle gradle :app:bootJar --no-daemon
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app
