@@ -211,7 +211,12 @@ export async function streamBriefing(
   if (response.status === 403) throw new Error("无权生成简报（缺少 ai:briefing 权限）");
   if (response.status === 404) throw new Error("ALERT_NOT_FOUND");
   if (response.status === 503) throw new Error("AI 服务暂不可用，请稍后重试");
-  if (!response.ok || !response.body) throw new Error("BRIEFING_FAILED");
+  if (!response.ok) {
+    throw new Error(`生成简报失败（HTTP ${response.status}）`);
+  }
+  if (!response.body) {
+    throw new Error("生成简报失败（响应体为空，服务端未按 SSE 返回）");
+  }
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
