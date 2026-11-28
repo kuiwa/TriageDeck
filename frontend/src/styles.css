@@ -1221,3 +1221,208 @@ textarea:focus-visible {
     grid-template-columns: 1fr;
   }
 }
+
+/* ---------- 审计时间线页 ---------- */
+
+.audit-card {
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+.audit-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 22px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.audit-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-soft);
+}
+
+.audit-intro p {
+  margin: 0 0 4px;
+  color: #33465d;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.audit-intro-sub {
+  color: var(--color-muted) !important;
+}
+
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.filter-label {
+  color: var(--color-muted);
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.filter-input {
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: var(--radius-control);
+  background: #fff;
+  color: var(--color-ink);
+  font-size: 12px;
+}
+
+.filter-input:focus {
+  outline: 2px solid rgb(8 127 117 / 35%);
+  outline-offset: 1px;
+  border-color: #087f75;
+}
+
+.filter-chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 30px;
+  padding: 5px 12px;
+  border: 1px solid #cfdae7;
+  border-radius: 999px;
+  background: #fff;
+  color: #3f5470;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 140ms ease;
+}
+
+.filter-chip:hover {
+  border-color: #9aabbe;
+  background: #f6f9fc;
+}
+
+.filter-chip-active {
+  border-color: #087f75;
+  background: #e7f7f5;
+  color: #06645c;
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px #087f75;
+}
+
+.filter-chip-active:hover {
+  border-color: #06645c;
+  background: #dbf3ef;
+}
+
+.audit-active-filters {
+  margin: 0;
+  color: #06645c;
+  font-size: 12px;
+}
+
+.audit-export {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.audit-summary {
+  padding: 12px 22px;
+  border-bottom: 1px solid var(--color-border);
+  color: #41536a;
+  font-size: 12px;
+}
+
+.audit-summary strong {
+  color: var(--color-brand-strong);
+}
+
+.audit-summary-hint {
+  color: #8a6d1a;
+}
+
+.audit-empty-hint {
+  margin: 16px 22px;
+  padding: 12px 14px;
+  border: 1px dashed var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface-soft);
+  color: #41536a;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.audit-empty-hint ul {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+.audit-hint {
+  margin: 0;
+  padding: 12px 22px;
+  color: #8a6d1a;
+  font-size: 12px;
+}
+
+.cell-outcome {
+  font-weight: 700;
+}
+
+.outcome-denied {
+  color: #a52e28;
+}
+
+.error-toast {
+  margin: 12px 22px;
+  padding: 10px 12px;
+  border: 1px solid #f3c9c6;
+  border-radius: 10px;
+  background: #fff0ef;
+  color: #a52e28;
+  font-size: 12px;
+}
+
+@media (max-width: 720px) {
+  .audit-card-header {
+    padding: 17px;
+  }
+
+  .audit-filter {
+    padding: 16px 17px;
+  }
+
+  .audit-export {
+    padding: 12px 17px;
+  }
+
+  .audit-summary {
+    padding: 10px 17px;
+  }
+
+  .audit-empty-hint {
+    margin: 12px 17px;
+  }
+}
