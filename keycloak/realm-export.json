@@ -50,6 +50,18 @@
   ],
   "users": [
     {
+      "username": "admin",
+      "enabled": true,
+      "email": "admin@triagedeck.local",
+      "firstName": "Test",
+      "lastName": "Admin",
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "admin", "temporary": false }],
+      "realmRoles": ["admin"],
+      "clientRoles": { "account": ["view-profile", "manage-account"] }
+    },
+
+    {
       "username": "operator",
       "enabled": true,
       "email": "operator@triagedeck.local",
