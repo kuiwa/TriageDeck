@@ -62,11 +62,16 @@ public final class QueryFilterMapper {
         Instant from = parseInstant(map.get("from"));
         Instant to = parseInstant(map.get("to"));
 
-        // scope/clearedBy 当前读取端口无法表达，记录为丢弃字段
+        // scope=active 是当前读取端口的默认范围，视为已满足，不记为丢弃；
+        // 仅当请求 history 等暂不支持的范围时才提示
         if (map.containsKey("scope")) {
-            dropped.add("scope");
+            String scope = trimmed(firstValue(map.get("scope")));
+            if (scope != null && !scope.equalsIgnoreCase("active")) {
+                dropped.add("scope");
+            }
         }
         if (map.containsKey("clearedBy")) {
+            // clearedBy 仅对 history 有意义，当前读取端口不支持
             dropped.add("clearedBy");
         }
 
@@ -121,7 +126,12 @@ public final class QueryFilterMapper {
         try {
             return Instant.parse(result);
         } catch (Exception e) {
-            return null;
+            // 兼容模型返回带时区偏移的时间（如 +08:00）
+            try {
+                return java.time.OffsetDateTime.parse(result).toInstant();
+            } catch (Exception ignored) {
+                return null;
+            }
         }
     }
 
