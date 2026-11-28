@@ -164,6 +164,10 @@ export function App() {
     (p) => p.obj === "alert" && p.act === "ingest",
   ) ?? false;
 
+  const canBriefing = whoami.data?.permissions.some(
+    (p) => p.obj === "ai" && p.act === "briefing",
+  ) ?? false;
+
   const handleClear = async (alertId: string, reason?: string | null) => {
     const token = user?.access_token;
     if (!token) return;
@@ -385,6 +389,8 @@ export function App() {
             <AlertDetailPanel
               detail={detailQuery.data}
               onBack={() => setDetailId(null)}
+              accessToken={user?.access_token ?? null}
+              canBriefing={canBriefing}
             />
           )}
         </section>

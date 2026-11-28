@@ -1,10 +1,13 @@
-import React from "react";
-import type { AlertDetailView } from "../../../shared/api/types";
+import React, { useState } from "react";
+import type { AlertDetailView, BriefingDonePayload } from "../../../shared/api/types";
 import { severityClass } from "../../../shared/severity";
+import { streamBriefing } from "../../../shared/api/apiClient";
 
 interface AlertDetailPanelProps {
   detail: AlertDetailView;
   onBack: () => void;
+  accessToken: string | null;
+  canBriefing: boolean;
 }
 
 function formatPayload(payload: unknown): string {
@@ -19,7 +22,32 @@ function formatPayload(payload: unknown): string {
 export function AlertDetailPanel({
   detail,
   onBack,
+  accessToken,
+  canBriefing,
 }: AlertDetailPanelProps) {
+  const [streaming, setStreaming] = useState(false);
+  const [streamText, setStreamText] = useState("");
+  const [briefing, setBriefing] = useState<BriefingDonePayload | null>(null);
+  const [briefingError, setBriefingError] = useState<string | null>(null);
+
+  const handleBriefing = async () => {
+    if (!accessToken) return;
+    setStreaming(true);
+    setStreamText("");
+    setBriefing(null);
+    setBriefingError(null);
+    try {
+      await streamBriefing(accessToken, detail.id, {
+        onDelta: (text) => setStreamText((prev) => prev + text),
+        onDone: (payload) => setBriefing(payload),
+      });
+    } catch (error) {
+      setBriefingError(error instanceof Error ? error.message : "生成简报失败");
+    } finally {
+      setStreaming(false);
+    }
+  };
+
   return (
     <section className="alert-card" aria-labelledby="detail-title">
       <div className="alert-card-header">
@@ -89,6 +117,69 @@ export function AlertDetailPanel({
       <div className="detail-section">
         <h3 className="detail-section-title">告警内容</h3>
         <p className="detail-message">{detail.message}</p>
+      </div>
+
+      <div className="detail-section">
+        <h3 className="detail-section-title">AI 简报</h3>
+        <div className="ai-briefing-actions">
+          <button
+            type="button"
+            className="button button-primary"
+            onClick={handleBriefing}
+            disabled={!canBriefing || streaming || !accessToken}
+          >
+            {streaming ? "生成中…" : "生成 AI 简报"}
+          </button>
+          {!canBriefing && (
+            <span className="detail-caption">缺少 ai:briefing 权限，无法生成</span>
+          )}
+        </div>
+
+        {briefingError && (
+          <div className="error-inline" role="alert">{briefingError}</div>
+        )}
+
+        {streaming && !briefing && streamText && (
+          <pre className="ai-briefing-stream">{streamText}</pre>
+        )}
+
+        {briefing && (
+          <div className="ai-briefing">
+            {briefing.degraded && briefing.briefing.summary && (
+              <div className="ai-hint ai-hint-warn">
+                降级摘要：{briefing.briefing.summary}
+              </div>
+            )}
+            {([
+              ["impact", "影响"],
+              ["hypotheses", "假设"],
+              ["actions", "建议动作"],
+            ] as const).map(([key, label]) => (
+              <div className="ai-briefing-group" key={key}>
+                <h4 className="ai-briefing-group-title">{label}</h4>
+                {briefing.briefing[key].length === 0 ? (
+                  <p className="detail-caption">—</p>
+                ) : (
+                  <ul className="ai-briefing-list">
+                    {briefing.briefing[key].map((item, idx) => (
+                      <li key={`${key}-${idx}`}>
+                        {item.text}
+                        <span className="ai-briefing-meta">
+                          可信度 {(item.confidence * 100).toFixed(0)}%
+                          {item.priority ? ` · ${item.priority}` : ""}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ))}
+            <p className="detail-caption">
+              模型：{briefing.model} · 提示词版本：{briefing.promptVersion}
+              {briefing.degraded ? " · 已降级（模拟输出）" : ""}
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="detail-section">

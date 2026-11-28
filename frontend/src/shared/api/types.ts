@@ -140,6 +140,27 @@ export interface IngestResult {
   lastSeenAt: string;
 }
 
+export interface BriefingItem {
+  text: string;
+  confidence: number;
+  priority?: string;
+  evidenceEventIds: string[];
+}
+
+export interface Briefing {
+  impact: BriefingItem[];
+  hypotheses: BriefingItem[];
+  actions: BriefingItem[];
+  summary?: string;
+}
+
+export interface BriefingDonePayload {
+  briefing: Briefing;
+  degraded: boolean;
+  model: string;
+  promptVersion: string;
+}
+
 export interface MergeFields {
   source: string;
   type: string;

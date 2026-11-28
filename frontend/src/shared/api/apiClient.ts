@@ -3,6 +3,7 @@ import type {
   AlertDetailView,
   AuditEventPage,
   AuditQueryParams,
+  BriefingDonePayload,
   IngestRequest,
   IngestResult,
 } from "./types";
@@ -184,4 +185,75 @@ export async function ingestAlert(
     throw new Error("INGEST_ALERT_FAILED");
   }
   return response.json() as Promise<IngestResult>;
+}
+
+/**
+ * 告警简报（SSE over POST）。EventSource 不支持 POST/自定义 header，
+ * 故用 fetch + ReadableStream 解析 text/event-stream。
+ */
+export async function streamBriefing(
+  accessToken: string,
+  alertId: string,
+  handlers: {
+    onDelta: (text: string) => void;
+    onDone: (payload: BriefingDonePayload) => void;
+  }
+): Promise<void> {
+  const response = await fetch(`/api/ai/briefing/${alertId}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: "text/event-stream",
+    },
+  });
+
+  if (response.status === 401) throw new Error("UNAUTHORIZED");
+  if (response.status === 403) throw new Error("无权生成简报（缺少 ai:briefing 权限）");
+  if (response.status === 404) throw new Error("ALERT_NOT_FOUND");
+  if (response.status === 503) throw new Error("AI 服务暂不可用，请稍后重试");
+  if (!response.ok || !response.body) throw new Error("BRIEFING_FAILED");
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    let idx: number;
+    while ((idx = buffer.indexOf("\n\n")) >= 0) {
+      const frame = buffer.slice(0, idx);
+      buffer = buffer.slice(idx + 2);
+      const parsed = parseSseFrame(frame);
+      if (parsed.event === "delta" && parsed.data) {
+        try {
+          const obj = JSON.parse(parsed.data) as { text?: string };
+          if (obj.text) handlers.onDelta(obj.text);
+        } catch {
+          // 忽略非 JSON delta
+        }
+      } else if (parsed.event === "done" && parsed.data) {
+        try {
+          handlers.onDone(JSON.parse(parsed.data) as BriefingDonePayload);
+        } catch {
+          // 忽略非法 done
+        }
+      }
+    }
+  }
+}
+
+function parseSseFrame(frame: string): { event?: string; data?: string } {
+  let event: string | undefined;
+  const dataLines: string[] = [];
+  for (const line of frame.split("\n")) {
+    if (line.startsWith("event:")) {
+      event = line.slice(6).trim();
+    } else if (line.startsWith("data:")) {
+      dataLines.push(line.slice(5).trim());
+    }
+  }
+  return { event, data: dataLines.length > 0 ? dataLines.join("\n") : undefined };
 }
