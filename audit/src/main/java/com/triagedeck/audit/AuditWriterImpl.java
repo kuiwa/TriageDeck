@@ -9,10 +9,13 @@ import com.triagedeck.platform.trace.TraceIds;
 import com.triagedeck.platform.security.SecurityContext;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Instant;
 import java.util.HashMap;
@@ -21,6 +24,8 @@ import java.util.Map;
 @Component
 public class AuditWriterImpl implements AuditWriter {
 
+    private static final Logger log = LoggerFactory.getLogger(AuditWriterImpl.class);
+
     @PersistenceContext
     private EntityManager entityManager;
 
@@ -28,20 +33,30 @@ public class AuditWriterImpl implements AuditWriter {
     private final TraceIds traceIds;
     private final SecurityContext securityContext;
     private final ObjectMapper objectMapper;
+    private final TransactionTemplate requiresNew;
 
     public AuditWriterImpl(ObjectProvider<AuditTargetResolver> targetResolverProvider,
                            TraceIds traceIds,
                            SecurityContext securityContext,
-                           ObjectMapper objectMapper) {
+                           ObjectMapper objectMapper,
+                           PlatformTransactionManager transactionManager) {
         this.targetResolverProvider = targetResolverProvider;
         this.traceIds = traceIds;
         this.securityContext = securityContext;
         this.objectMapper = objectMapper;
+        this.requiresNew = new TransactionTemplate(transactionManager);
+        this.requiresNew.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        log.info("action=audit_writer_initialized txManager={}",
+                transactionManager.getClass().getSimpleName());
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
     @Override
     public void write(AuditCommand command) {
+        // 显式 REQUIRES_NEW 事务，不依赖 @Transactional 代理是否生效
+        requiresNew.executeWithoutResult(status -> insert(command));
+    }
+
+    private void insert(AuditCommand command) {
         Map<String, Object> detail = new HashMap<>();
         if (command.detail() != null) {
             detail.putAll(command.detail());
