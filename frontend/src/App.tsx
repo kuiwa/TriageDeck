@@ -14,6 +14,7 @@ import { HistoryTable } from "./features/alerts/components/HistoryTable";
 import { AlertDetailPanel } from "./features/alerts/components/AlertDetailPanel";
 import { AuditTable } from "./features/audit/components/AuditTable";
 import { AiQueryPanel } from "./features/ai/components/AiQueryPanel";
+import { IngestForm } from "./features/alerts/components/IngestForm";
 import { SeverityDashboard } from "./features/alerts/components/SeverityDashboard";
 import {
   useAlerts,
@@ -60,7 +61,7 @@ export function App() {
   const [historyPage, setHistoryPage] = useState(0);
   const [clearMessage, setClearMessage] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
-  const [activeView, setActiveView] = useState<"alerts" | "audit" | "ai">("alerts");
+  const [activeView, setActiveView] = useState<"alerts" | "audit" | "ai" | "ingest">("alerts");
   useEffect(() => {
     let active = true;
     void initializeAuthentication()
@@ -157,6 +158,10 @@ export function App() {
 
   const canClear = whoami.data?.permissions.some(
     (p) => p.obj === "alert" && p.act === "clear",
+  ) ?? false;
+
+  const canIngest = whoami.data?.permissions.some(
+    (p) => p.obj === "alert" && p.act === "ingest",
   ) ?? false;
 
   const handleClear = async (alertId: string, reason?: string | null) => {
@@ -338,6 +343,17 @@ export function App() {
           >
             AI 查询
           </button>
+          <button
+            role="tab"
+            aria-selected={activeView === "ingest"}
+            className={`tab-button ${activeView === "ingest" ? "tab-active" : ""}`}
+            onClick={() => {
+              setActiveView("ingest");
+              setDetailId(null);
+            }}
+          >
+            告警上报
+          </button>
         </div>
       </section>
 
@@ -349,6 +365,8 @@ export function App() {
         <AuditTable accessToken={user?.access_token ?? null} />
       ) : activeView === "ai" ? (
         <AiQueryPanel accessToken={user?.access_token ?? null} />
+      ) : activeView === "ingest" ? (
+        <IngestForm accessToken={user?.access_token ?? null} canIngest={canIngest} />
       ) : detailId !== null ? (
         <section className="detail-view">
           {detailQuery.isError && (

@@ -3,6 +3,8 @@ import type {
   AlertDetailView,
   AuditEventPage,
   AuditQueryParams,
+  IngestRequest,
+  IngestResult,
 } from "./types";
 
 export interface WhoAmI {
@@ -154,4 +156,32 @@ export async function aiQuery(
     throw new Error("AI_QUERY_FAILED");
   }
   return response.json() as Promise<AiQueryResponse>;
+}
+
+export async function ingestAlert(
+  accessToken: string,
+  request: IngestRequest
+): Promise<IngestResult> {
+  const response = await fetch("/api/alerts/ingest", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (response.status === 401) {
+    throw new Error("UNAUTHORIZED");
+  }
+  if (response.status === 403) {
+    throw new Error("无权上报告警（缺少 alert:ingest 权限）");
+  }
+  if (response.status === 400) {
+    throw new Error("请求参数不合法，请检查必填字段与格式");
+  }
+  if (!response.ok) {
+    throw new Error("INGEST_ALERT_FAILED");
+  }
+  return response.json() as Promise<IngestResult>;
 }

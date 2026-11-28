@@ -121,6 +121,25 @@ export interface AiQueryResponse {
   droppedFields: string[];
 }
 
+export interface IngestRequest {
+  source: string;
+  type: string;
+  resourceId: string;
+  eventCode?: string;
+  severity: string;
+  message: string;
+  occurredAt: string;
+  payload?: Record<string, unknown>;
+}
+
+export interface IngestResult {
+  id: string;
+  created: boolean;
+  occurrenceCount: number;
+  severity: string;
+  lastSeenAt: string;
+}
+
 export interface MergeFields {
   source: string;
   type: string;
