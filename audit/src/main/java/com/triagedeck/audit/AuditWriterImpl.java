@@ -85,7 +85,8 @@ public class AuditWriterImpl implements AuditWriter {
             "target_type, target_id, outcome, source, source_event_id, client_net, trace_id, detail) " +
             "VALUES (:id, :occurredAt, now(), :actor, :actorType, :action, " +
             ":targetType, :targetId, :outcome, :source, :sourceEventId, :clientNet, :traceId, " +
-            "cast(:detail as jsonb))")
+            "cast(:detail as jsonb)) " +
+            "ON CONFLICT (source_event_id) WHERE source_event_id IS NOT NULL DO NOTHING")
             .setParameter("id", command.id())
             .setParameter("occurredAt", occurredAt)
             .setParameter("actor", command.actor())

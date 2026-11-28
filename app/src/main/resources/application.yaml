@@ -61,7 +61,7 @@ app:
         notify: triagedeck-notify
   keycloak:
     admin:
-      base-url: http://keycloak:8081
+      base-url: ${KC_ADMIN_BASE_URL:http://localhost:8081}
       realm: triagedeck
       client-id: triagedeck-audit-collector
       client-secret: ${KC_COLLECTOR_SECRET:}

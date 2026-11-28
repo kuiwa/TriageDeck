@@ -46,6 +46,20 @@
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": true,
       "fullScopeAllowed": true
+    },
+    {
+      "clientId": "triagedeck-audit-collector",
+      "name": "TriageDeck Keycloak audit event collector",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "triagedeck-audit-collector-secret",
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "fullScopeAllowed": true
     }
   ],
   "users": [
@@ -88,6 +102,14 @@
       "enabled": true,
       "serviceAccountClientId": "ingest-service",
       "realmRoles": ["service"]
+    },
+    {
+      "username": "service-account-triagedeck-audit-collector",
+      "enabled": true,
+      "serviceAccountClientId": "triagedeck-audit-collector",
+      "clientRoles": {
+        "realm-management": ["view-events", "view-realm"]
+      }
     }
   ],
   "roles": {

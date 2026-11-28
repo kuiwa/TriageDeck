@@ -1,46 +1,52 @@
-package com.triagedeck.audit.keyword;
+package com.triagedeck.audit;
 
-import com.triagedeck.audit.AuditCommand;
-import com.triagedeck.audit.AuditWriter;
-import com.triagedeck.audit.CollectorState;
 import com.triagedeck.platform.audit.ActorType;
 import com.triagedeck.platform.audit.AuditAction;
 import com.triagedeck.platform.audit.Outcome;
 import com.triagedeck.platform.audit.TargetType;
 import com.triagedeck.platform.trace.TraceIds;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.http.ResponseEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.HttpEntity;
-
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
-import jakarta.transaction.Transactional;
 
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 /**
- * Keycloak 事件定时采集器（US-C1）。
- * 每 15s 触发一次，通过 client_credentials 调用 Keycloak Admin API 拉取登录/登出/登录失败事件，
- * 批量写入 audit_event（幂等：on conflict (source_event_id) do nothing），推进 keycloak_cursor 游标。
+ * Keycloak 事件定时采集器（US-C1）：client_credentials 拉取 LOGIN/LOGOUT/LOGIN_ERROR，
+ * 写入 audit_event（source_event_id 幂等），并推进 keycloak_cursor 游标。
+ *
+ * 修复要点：
+ * - token 从「本 realm」获取，且以 Bearer 头调用 Admin API；
+ * - 复用 AuditWriter 写审计（其内部用显式 REQUIRES_NEW 事务）；
+ * - 游标读写用 JdbcTemplate（单语句，无需事务）；
+ * - 跳过非登录类事件；用户名优先取 details.username。
  */
 @Component
 public class KeycloakEventCollector {
 
-    private static final String REALM_EVENTS_ID = "realm-events";
+    private static final Logger log = LoggerFactory.getLogger(KeycloakEventCollector.class);
+    private static final String CURSOR_ID = "realm-events";
 
     private final RestTemplate restTemplate;
     private final AuditWriter auditWriter;
     private final CollectorState collectorState;
     private final TraceIds traceIds;
+    private final JdbcTemplate jdbcTemplate;
 
     @Value("${app.keycloak.admin.base-url:http://keycloak:8081}")
     private String keycloakBaseUrl;
@@ -60,21 +66,22 @@ public class KeycloakEventCollector {
     @Value("${app.audit.collect-max-pages:5}")
     private int maxPages;
 
-    private String cachedToken = null;
-    private Instant tokenExpiresAt = null;
+    private String cachedToken;
+    private Instant tokenExpiresAt;
 
     public KeycloakEventCollector(RestTemplate restTemplate,
                                   AuditWriter auditWriter,
                                   CollectorState collectorState,
-                                  TraceIds traceIds) {
+                                  TraceIds traceIds,
+                                  JdbcTemplate jdbcTemplate) {
         this.restTemplate = restTemplate;
         this.auditWriter = auditWriter;
         this.collectorState = collectorState;
         this.traceIds = traceIds;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     @Scheduled(fixedDelayString = "${app.audit.collect-interval:15000}")
-    @Transactional
     public void collect() {
         String traceId = traceIds.current();
         try {
@@ -84,62 +91,85 @@ public class KeycloakEventCollector {
                 return;
             }
 
-            String eventsEnabledUrl = keycloakBaseUrl + "/admin/realms/" + realm;
-            ResponseEntity<Map> realmResp = restTemplate.getForEntity(
-                    eventsEnabledUrl, Map.class, new Object[]{getAdminToken()});
-            if (!Boolean.TRUE.equals(realmResp.getBody().get("eventsEnabled"))) {
+            Map<String, Object> realmInfo = getRealm();
+            if (realmInfo == null || !Boolean.TRUE.equals(realmInfo.get("eventsEnabled"))) {
                 collectorState.setEventsDisabled(true);
                 collectorState.setCollectorLastRunAt(Instant.now());
+                log.info("action=keycloak_collect_skipped reason=events_disabled");
                 return;
             }
             collectorState.setEventsDisabled(false);
 
-            Map<String, Object> cursor = readCursor();
-            long lastEventTime = ((Number) cursor.get("lastEventTime")).longValue();
-            String lastEventId = (String) cursor.get("lastEventId");
+            long lastEventTime = readCursor();
+            LocalDate dateFrom = lastEventTime <= 0
+                    ? LocalDate.of(1970, 1, 1)
+                    : LocalDate.ofInstant(Instant.ofEpochMilli(lastEventTime), ZoneOffset.UTC)
+                            .minusDays(1);
 
-            int totalNew = 0;
-            String dateFrom = Instant.ofEpochMilli(lastEventTime).toString();
+            int insertedTotal = 0;
+            long maxSeen = lastEventTime;
 
             for (int page = 0; page < maxPages; page++) {
                 String eventsUrl = keycloakBaseUrl + "/admin/realms/" + realm + "/events"
                         + "?dateFrom=" + dateFrom
                         + "&first=" + (page * pageSize)
                         + "&max=" + pageSize;
-                ResponseEntity<List> eventsResp = restTemplate.getForEntity(
-                        eventsUrl, List.class, new Object[]{getAdminToken()});
-                List<Map<String, Object>> events = eventsResp.getBody();
+                List<Map<String, Object>> events = getEvents(eventsUrl);
                 if (events == null || events.isEmpty()) {
                     break;
                 }
-
-                int inserted = batchInsert(events, traceId);
-                totalNew += inserted;
-
-                if (inserted < pageSize) {
+                for (Map<String, Object> event : events) {
+                    Object timeObj = event.get("time");
+                    if (timeObj instanceof Number n && n.longValue() > maxSeen) {
+                        maxSeen = n.longValue();
+                    }
+                    if (writeEvent(event, traceId)) {
+                        insertedTotal++;
+                    }
+                }
+                if (events.size() < pageSize) {
                     break;
                 }
-
-                Map<String, Object> last = events.get(events.size() - 1);
-                lastEventTime = ((Number) last.get("time")).longValue();
-                lastEventId = (String) last.get("id");
             }
 
-            upsertCursor(lastEventTime, lastEventId);
-            collectorState.recordRound(totalNew);
+            if (maxSeen > lastEventTime) {
+                upsertCursor(maxSeen);
+            }
+            collectorState.recordRound(insertedTotal);
             collectorState.setCollectorLastRunAt(Instant.now());
-
+            log.info("action=keycloak_collect inserted={} lastEventTime={}", insertedTotal, maxSeen);
         } catch (Exception e) {
             collectorState.setCollectorLastRunAt(Instant.now());
-            System.err.println("keycloak_collect_error traceId=" + traceId + " msg=" + e.getMessage());
+            log.error("action=keycloak_collect_failed reason={}", e.toString());
         }
     }
 
+    private Map<String, Object> getRealm() {
+        return restTemplate.exchange(
+                keycloakBaseUrl + "/admin/realms/" + realm,
+                HttpMethod.GET, new HttpEntity<>(bearerHeaders()), Map.class).getBody();
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> getEvents(String url) {
+        ResponseEntity<List> response = restTemplate.exchange(
+                url, HttpMethod.GET, new HttpEntity<>(bearerHeaders()), List.class);
+        return (List<Map<String, Object>>) response.getBody();
+    }
+
+    private HttpHeaders bearerHeaders() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(getAdminToken());
+        return headers;
+    }
+
     private String getAdminToken() {
-        if (cachedToken != null && tokenExpiresAt != null && Instant.now().isBefore(tokenExpiresAt.minusSeconds(30))) {
+        if (cachedToken != null && tokenExpiresAt != null
+                && Instant.now().isBefore(tokenExpiresAt.minusSeconds(30))) {
             return cachedToken;
         }
-        String tokenUrl = keycloakBaseUrl + "/realms/master/protocol/openid-connect/token";
+        String tokenUrl = keycloakBaseUrl + "/realms/" + realm
+                + "/protocol/openid-connect/token";
         Map<String, String> body = new LinkedHashMap<>();
         body.put("grant_type", "client_credentials");
         body.put("client_id", clientId);
@@ -147,133 +177,121 @@ public class KeycloakEventCollector {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
         HttpEntity<Map<String, String>> request = new HttpEntity<>(body, headers);
-        ResponseEntity<Map> resp = restTemplate.postForEntity(tokenUrl, request, Map.class);
-        Map<String, Object> tokenResp = resp.getBody();
-        cachedToken = (String) tokenResp.get("access_token");
-        int expiresIn = (Integer) tokenResp.getOrDefault("expires_in", 300);
-        tokenExpiresAt = Instant.now().plusSeconds(expiresIn);
+        ResponseEntity<Map> response = restTemplate.postForEntity(tokenUrl, request, Map.class);
+        Map<String, Object> tokenResponse = response.getBody();
+        if (tokenResponse == null || tokenResponse.get("access_token") == null) {
+            throw new IllegalStateException("Keycloak token response missing access_token");
+        }
+        cachedToken = (String) tokenResponse.get("access_token");
+        Object expiresIn = tokenResponse.getOrDefault("expires_in", 300);
+        tokenExpiresAt = Instant.now().plusSeconds(
+                expiresIn instanceof Number n ? n.longValue() : 300L);
         return cachedToken;
     }
 
-    @PersistenceContext
-    private EntityManager entityManager;
+    private boolean writeEvent(Map<String, Object> event, String traceId) {
+        String eventId = stringValue(event.get("id"));
+        String type = stringValue(event.get("type"));
+        AuditAction action = mapAction(type);
+        Object timeObj = event.get("time");
+        if (eventId == null || action == null || !(timeObj instanceof Number time)) {
+            return false;
+        }
 
-    private int batchInsert(List<Map<String, Object>> events, String traceId) {
-        int inserted = 0;
-        for (Map<String, Object> event : events) {
-            String eventId = (String) event.get("id");
-            String type = (String) event.get("type");
-            String userId = (String) event.get("userId");
-            String ipAddress = (String) event.get("ipAddress");
-            long time = ((Number) event.get("time")).longValue();
+        String userId = stringValue(event.get("userId"));
+        String ipAddress = stringValue(event.get("ipAddress"));
+        String actor = extractUsername(event, userId);
 
-            AuditAction action = mapKeycloakAction(type);
-            Outcome outcome = mapKeycloakOutcome(type);
-            String actor = userId != null ? userId : "unknown";
-            String actorType = userId != null ? ActorType.USER.name() : ActorType.SYSTEM.name();
+        Map<String, Object> detail = new LinkedHashMap<>();
+        detail.put("type", type);
+        detail.put("userId", userId);
+        detail.put("ipAddress", ipAddress);
 
-            AuditCommand cmd = new AuditCommand(
+        try {
+            auditWriter.write(new AuditCommand(
                     UUID.randomUUID(),
-                    Instant.ofEpochMilli(time),
-                    actor,
-                    ActorType.valueOf(actorType),
+                    Instant.ofEpochMilli(time.longValue()),
+                    actor != null ? actor : "unknown",
+                    actor != null ? ActorType.USER : ActorType.SYSTEM,
                     action,
                     TargetType.AUTH,
                     eventId,
-                    outcome,
+                    mapOutcome(type),
                     "KEYCLOAK",
                     eventId,
                     maskIp(ipAddress),
                     traceId,
-                    Map.of("type", type, "userId", userId, "ipAddress", ipAddress)
-            );
-
-            try {
-                int rows = entityManager.createNativeQuery(
-                        "INSERT INTO audit_event (id, occurred_at, recorded_at, actor, actor_type, action, "
-                                + "target_type, target_id, outcome, source, source_event_id, client_net, trace_id, detail) "
-                                + "VALUES (:id, :occurredAt, now(), :actor, :actorType, :action, "
-                                + ":targetType, :targetId, :outcome, :source, :sourceEventId, :clientNet, :traceId, "
-                                + "cast(:detail as jsonb)) "
-                                + "ON CONFLICT (source_event_id) WHERE source_event_id IS NOT NULL DO NOTHING")
-                        .setParameter("id", cmd.id())
-                        .setParameter("occurredAt", cmd.occurredAt())
-                        .setParameter("actor", cmd.actor())
-                        .setParameter("actorType", cmd.actorType().name())
-                        .setParameter("action", cmd.action().name())
-                        .setParameter("targetType", cmd.targetType().name())
-                        .setParameter("targetId", cmd.targetId())
-                        .setParameter("outcome", cmd.outcome().name())
-                        .setParameter("source", cmd.source())
-                        .setParameter("sourceEventId", cmd.sourceEventId())
-                        .setParameter("clientNet", cmd.clientNet())
-                        .setParameter("traceId", cmd.traceId())
-                        .setParameter("detail", cmd.detail())
-                        .executeUpdate();
-                inserted += rows;
-            } catch (Exception e) {
-                System.err.println("keycloak_insert_error eventId=" + eventId + " msg=" + e.getMessage());
-            }
-        }
-        return inserted;
-    }
-
-    private Map<String, Object> readCursor() {
-        try {
-            List<Map<String, Object>> rows = entityManager.createNativeQuery(
-                    "SELECT last_event_time, last_event_id FROM keycloak_cursor WHERE id = :id")
-                    .setParameter("id", REALM_EVENTS_ID)
-                    .getResultList();
-            if (rows.isEmpty()) {
-                return Map.of("lastEventTime", 0L, "lastEventId", (String) null);
-            }
-            Map<String, Object> row = rows.get(0);
-            return Map.of(
-                    "lastEventTime", row.get("last_event_time"),
-                    "lastEventId", row.get("last_event_id")
-            );
+                    detail));
+            return true;
         } catch (Exception e) {
-            return Map.of("lastEventTime", 0L, "lastEventId", (String) null);
+            log.error("action=keycloak_insert_failed eventId={} reason={}", eventId, e.toString());
+            return false;
         }
     }
 
-    private void upsertCursor(long lastEventTime, String lastEventId) {
-        entityManager.createNativeQuery(
+    private String extractUsername(Map<String, Object> event, String fallbackUserId) {
+        Object details = event.get("details");
+        if (details instanceof Map<?, ?> map) {
+            Object username = map.get("username");
+            if (username instanceof String s && !s.isBlank()) {
+                return s;
+            }
+        }
+        return fallbackUserId;
+    }
+
+    private long readCursor() {
+        try {
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                    "SELECT last_event_time FROM keycloak_cursor WHERE id = ?", CURSOR_ID);
+            if (rows.isEmpty()) {
+                return 0L;
+            }
+            Object value = rows.get(0).get("last_event_time");
+            return value instanceof Number n ? n.longValue() : 0L;
+        } catch (Exception e) {
+            return 0L;
+        }
+    }
+
+    private void upsertCursor(long lastEventTime) {
+        jdbcTemplate.update(
                 "INSERT INTO keycloak_cursor (id, last_event_time, last_event_id, updated_at) "
-                        + "VALUES (:id, :time, :eventId, now()) "
+                        + "VALUES (?, ?, NULL, now()) "
                         + "ON CONFLICT (id) DO UPDATE SET "
-                        + "  last_event_time = greatest(keycloak_cursor.last_event_time, excluded.last_event_time), "
-                        + "  last_event_id = CASE WHEN excluded.last_event_time >= keycloak_cursor.last_event_time "
-                        + "                     THEN excluded.last_event_id ELSE keycloak_cursor.last_event_id END, "
-                        + "  updated_at = now()")
-                .setParameter("id", REALM_EVENTS_ID)
-                .setParameter("time", lastEventTime)
-                .setParameter("eventId", lastEventId)
-                .executeUpdate();
+                        + "last_event_time = greatest(keycloak_cursor.last_event_time, excluded.last_event_time), "
+                        + "updated_at = now()",
+                CURSOR_ID, lastEventTime);
     }
 
-    private AuditAction mapKeycloakAction(String type) {
-        switch (type) {
-            case "LOGIN": return AuditAction.LOGIN;
-            case "LOGOUT": return AuditAction.LOGOUT;
-            case "LOGIN_ERROR": return AuditAction.LOGIN_FAILED;
-            default: return AuditAction.ACCESS_DENIED;
+    private AuditAction mapAction(String type) {
+        if (type == null) {
+            return null;
         }
+        return switch (type) {
+            case "LOGIN" -> AuditAction.LOGIN;
+            case "LOGOUT" -> AuditAction.LOGOUT;
+            case "LOGIN_ERROR" -> AuditAction.LOGIN_FAILED;
+            default -> null;
+        };
     }
 
-    private Outcome mapKeycloakOutcome(String type) {
-        if ("LOGIN_ERROR".equals(type)) {
-            return Outcome.FAILED;
-        }
-        return Outcome.SUCCESS;
+    private Outcome mapOutcome(String type) {
+        return "LOGIN_ERROR".equals(type) ? Outcome.FAILED : Outcome.SUCCESS;
     }
 
     private String maskIp(String ip) {
-        if (ip == null) return null;
+        if (ip == null) {
+            return null;
+        }
         String[] parts = ip.split("\\.");
         if (parts.length == 4) {
             return parts[0] + "." + parts[1] + "." + parts[2] + ".0/24";
         }
         return ip;
+    }
+
+    private String stringValue(Object value) {
+        return value instanceof String s && !s.isBlank() ? s : null;
     }
 }
