@@ -67,12 +67,21 @@ export function AlertDetailPanel({
             告警 ID：{detail.id} &nbsp;·&nbsp; 状态：{detail.status}
           </p>
         </div>
-        <span
-          className={`severity-badge ${severityClass(detail.severity)}`}
-          title={detail.severity}
-        >
-          {detail.severity}
-        </span>
+        <div className="detail-header-badges">
+          <span
+            className={`detail-status ${
+              detail.status === "ACTIVE" ? "detail-status-active" : "detail-status-cleared"
+            }`}
+          >
+            {detail.status === "ACTIVE" ? "活动" : "已清除"}
+          </span>
+          <span
+            className={`severity-badge ${severityClass(detail.severity)}`}
+            title={detail.severity}
+          >
+            {detail.severity}
+          </span>
+        </div>
       </div>
 
       <div className="detail-grid">
