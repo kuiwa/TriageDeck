@@ -21,7 +21,7 @@ TriageDeck：一个告警分诊台 + 统一审计的控制台。单进程 Spring
 |---|---|
 | `docs/00-index.md` | 文档地图：阅读顺序、冻结状态、修订原则 |
 | `docs/01-requirements.md` | 需求（US 编号），唯一验收依据（**原文不改**） |
-| `docs/03-scope-v1.md` | 范围冻结：19 必做 + 3 可选、二期清单、需求勘误表（E1…E10） |
+| `docs/03-scope-v1.md` | 范围冻结：20 必做 + 3 可选、二期清单、需求勘误表（E1…E10） |
 | `docs/02-design.md` | 总体设计：系统全景、数据不变量、12 条路径地图、授权/消息/审计/认证/AI 模型、非功能、ADR 索引 |
 | `docs/02b-contract.md` | **字段级唯一真相**：枚举、错误码、限制表、7 张表逐列、#1…#12 入参返回、Casbin 字典、脱敏规则 |
 | `docs/lld/00-lld-template.md` | LLD 统一 9 节模板 |
@@ -125,7 +125,7 @@ platform → 无业务依赖（注解、事件总线、Kafka、错误、ID、时
 
 | 项 | 约定 |
 |---|---|
-| 包名 | `io.github.<handle>.triagedeck.<module>.<layer>`，layer ∈ `api/service/domain/repo/config` |
+| 包名 | `com.triagedeck.<module>.<layer>`，layer ∈ `api/service/domain/repo/config` |
 | DTO | `record`；后缀 `Request` / `View` / `Detail`；放在 `api` 包 |
 | 实体 | JPA `@Entity`，放 `domain`；**不直接返回给前端** |
 | ID | `UUID`，主键名 `id` |
@@ -147,15 +147,18 @@ platform → 无业务依赖（注解、事件总线、Kafka、错误、ID、时
 ./gradlew build                                   # 全量编译 + 单测
 ./gradlew :alert:test                             # 单模块测试
 ./gradlew :alert:test --tests '*ClearIT*'         # 单类（集成测试后缀 IT）
-docker compose up -d postgres kafka               # 只起依赖
-docker compose up -d --build                      # 全栈
+docker compose up -d postgres keycloak            # 本地开发只起依赖（Kafka 用 brew 的 localhost:9092）
+./scripts/create-kafka-topics.sh                  # 本机 Kafka 显式建 4 个 topic（幂等）
+docker compose up -d --build                      # 全栈（Kafka 对外监听 localhost:19092，与 brew 的 9092 并存）
 docker compose ps                                 # 看健康状态
 docker compose exec postgres psql -U triagedeck   # 本机没装 psql 时用这个
 curl -s localhost:8080/actuator/health            # 应返回 {"status":"UP"}
 cd frontend && npm run dev                        # 前端（代理 /api → 8080）
 cd frontend && npx openapi-typescript ../docs/api/openapi.yaml -o src/shared/api/schema.d.ts
 npx playwright test                               # e2e
-./gradlew :device-simulator:run --args="--count=10 --mode=kafka"   # Kafka 入口模拟
+./gradlew :device-simulator:run --args="--count=10 --mode=kafka"   # Kafka 入口模拟（连 brew 的 localhost:9092）
+./gradlew :device-simulator:run --args="--count=10 --mode=kafka --bootstrap=localhost:19092"  # 全栈容器时用 compose Kafka
+./scripts/send-kafka-alerts.sh                     # 交互式造告警：选等级/条数/类型，自动探测 19092/9092
 ```
 
 **本机环境前提（T01 开工前必须满足）**：Java 21 ✅；Node ≥20 ✅；Gradle **未安装** → 需先用 start.spring.io 生成工程或 `gradle wrapper` 引导出 `./gradlew`；Docker CLI 存在但 **daemon 未运行且缺 compose v2 插件** → 需启动 Docker Desktop 并确认 `docker compose version` 可用；`psql` 未安装 → 统一用 `docker compose exec postgres psql`。

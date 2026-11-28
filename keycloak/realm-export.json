@@ -15,23 +15,66 @@
       "directAccessGrantsEnabled": false,
       "redirectUris": [
         "http://localhost:5173/callback",
+        "http://localhost:5174/callback",
         "http://localhost:8080/callback",
         "http://127.0.0.1:5173/callback",
+        "http://127.0.0.1:5174/callback",
         "http://127.0.0.1:8080/callback"
       ],
       "webOrigins": [
         "http://localhost:5173",
+        "http://localhost:5174",
         "http://localhost:8080",
         "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
         "http://127.0.0.1:8080"
       ],
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "http://localhost:5173/*##http://localhost:8080/*##http://127.0.0.1:5173/*##http://127.0.0.1:8080/*"
+        "post.logout.redirect.uris": "http://localhost:5173/*##http://localhost:5174/*##http://localhost:8080/*##http://127.0.0.1:5173/*##http://127.0.0.1:5174/*##http://127.0.0.1:8080/*"
       }
+    },
+    {
+      "clientId": "ingest-service",
+      "name": "TriageDeck alert ingest service",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "fullScopeAllowed": true
+    },
+    {
+      "clientId": "triagedeck-audit-collector",
+      "name": "TriageDeck Keycloak audit event collector",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "triagedeck-audit-collector-secret",
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "fullScopeAllowed": true
     }
   ],
   "users": [
+    {
+      "username": "admin",
+      "enabled": true,
+      "email": "admin@triagedeck.local",
+      "firstName": "Test",
+      "lastName": "Admin",
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "admin", "temporary": false }],
+      "realmRoles": ["admin"],
+      "clientRoles": { "account": ["view-profile", "manage-account"] }
+    },
+
     {
       "username": "operator",
       "enabled": true,
@@ -40,7 +83,8 @@
       "lastName": "Operator",
       "emailVerified": true,
       "credentials": [{ "type": "password", "value": "operator", "temporary": false }],
-      "realmRoles": ["operator"]
+      "realmRoles": ["operator"],
+      "clientRoles": { "account": ["view-profile", "manage-account"] }
     },
     {
       "username": "viewer",
@@ -50,7 +94,22 @@
       "lastName": "Viewer",
       "emailVerified": true,
       "credentials": [{ "type": "password", "value": "viewer", "temporary": false }],
-      "realmRoles": ["viewer"]
+      "realmRoles": ["viewer"],
+      "clientRoles": { "account": ["view-profile", "manage-account"] }
+    },
+    {
+      "username": "service-account-ingest-service",
+      "enabled": true,
+      "serviceAccountClientId": "ingest-service",
+      "realmRoles": ["service"]
+    },
+    {
+      "username": "service-account-triagedeck-audit-collector",
+      "enabled": true,
+      "serviceAccountClientId": "triagedeck-audit-collector",
+      "clientRoles": {
+        "realm-management": ["view-events", "view-realm"]
+      }
     }
   ],
   "roles": {

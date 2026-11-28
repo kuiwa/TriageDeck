@@ -197,7 +197,14 @@ sequenceDiagram
 | `app.kafka.consumer.group.notify` | `triagedeck-notify` | |
 
 - topic 由 compose 的 `kafka-init` 一次性创建（4 个：两个主 + 两个 DLT），`auto.create.topics.enable=false`。
+- 本地开发不要让 compose 的 kafka 与 Homebrew Kafka 同时监听 9092：宿主机跑 app / 模拟器时用
+  `docker compose up -d postgres keycloak` + `./scripts/create-kafka-topics.sh`（brew Kafka）；
+  全栈容器用 `docker compose up -d --build`，其 Kafka 只把 EXTERNAL 监听器映射到宿主 `19092`
+  （容器内仍走 `kafka:9092`），因此 brew 的 9092 与 compose 的 19092 可以并存。
+  全栈时宿主工具要投消息：`--bootstrap=localhost:19092`（同一个集群，不是第二个 Kafka）。
 - 设备模拟器：`tools/device-simulator`（Gradle 模块 `:device-simulator`），用 `kafka-clients` 直接 `KafkaProducer` 投 10 条；**工具不参与应用运行**，因此不受「不手写 ProducerFactory」约束（该约束针对应用 bean）。
+- 交互式造告警：`scripts/send-kafka-alerts.sh`（选等级 / 条数 / 类型，自动探测 19092→compose、9092→brew；
+  key 用与 `Fingerprint.of` 相同的 SHA-256 算法；`--yes`/`--count=` 等参数可非交互执行）。
 - `spring.kafka` 的序列化：值用 `StringSerializer`/`StringDeserializer`，应用层用 Jackson 解析（错误可控，便于 DLT）。
 
 ## 9. 测试计划

@@ -1,0 +1,13 @@
+pluginManagement {
+    repositories {
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+rootProject.name = 'TriageDeck'
+
+include 'app', 'alert', 'audit', 'ai', 'notify', 'platform', 'security'
+
+include ':device-simulator'
+project(':device-simulator').projectDir = file('tools/device-simulator')

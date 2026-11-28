@@ -1,0 +1,73 @@
+package com.triagedeck.security.config;
+
+import java.io.IOException;
+import java.util.UUID;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import com.triagedeck.platform.audit.AccessDeniedAuditPort;
+import com.triagedeck.security.api.ApiError;
+import com.triagedeck.platform.trace.TraceIds;
+import com.triagedeck.security.auth.CurrentActor;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.access.AccessDeniedHandler;
+
+public final class JsonAccessDeniedHandler implements AccessDeniedHandler {
+
+    private final ObjectMapper objectMapper;
+    private final AccessDeniedAuditPort auditPort;
+    private final TraceIds traceIds;
+
+    @Autowired
+    public JsonAccessDeniedHandler(ObjectMapper objectMapper,
+                                   AccessDeniedAuditPort auditPort,
+                                   TraceIds traceIds) {
+        this.objectMapper = objectMapper;
+        this.auditPort = auditPort;
+        this.traceIds = traceIds;
+    }
+
+    @Override
+    public void handle(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            AccessDeniedException exception) throws IOException {
+        String traceId = traceIds.current();
+        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        objectMapper.writeValue(response.getOutputStream(),
+                new ApiError("ACCESS_DENIED", "无权访问该资源", traceId));
+
+        // 403 越权审计：写在 handler 里，不要用 @RestControllerAdvice
+        try {
+            String actor = "unknown";
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.getPrincipal() instanceof CurrentActor currentActor) {
+                actor = currentActor.username();
+            }
+
+            Object deniedObj = request.getAttribute(PermissionInterceptor.DENIED_OBJ_ATTRIBUTE);
+            Object deniedAct = request.getAttribute(PermissionInterceptor.DENIED_ACT_ATTRIBUTE);
+            String obj = deniedObj != null ? deniedObj.toString() : "unknown";
+            String act = deniedAct != null ? deniedAct.toString() : "unknown";
+
+            auditPort.recordDenied(
+                    actor,
+                    obj,
+                    act,
+                    request.getRequestURI(),
+                    request.getMethod(),
+                    request.getRemoteAddr(),
+                    traceId);
+        } catch (Exception e) {
+            // 审计失败不影响 403 响应
+        }
+    }
+}

@@ -301,6 +301,8 @@ simulator 以 Kafka 方式投 10 条 → 3 秒内全部入库
 
 **禁止**：手写 `ProducerFactory`/`KafkaTemplate`；在事务内直接 send（必须 `AFTER_COMMIT`）；消费者吞异常返回；把 DLT 配置写死成 topic 名字符串（用配置）。
 
+**实现状态**：已完成（2026-11-27），记录见 `docs/ai-log/T10.md`。
+
 ---
 
 ## T11 AI 简报

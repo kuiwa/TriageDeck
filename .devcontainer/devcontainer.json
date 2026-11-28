@@ -23,12 +23,19 @@
         "vscjava.vscode-gradle",
         "dbaeumer.vscode-eslint",
         "esbenp.prettier-vscode",
-        "saoudrizwan.claude-dev"
+        "saoudrizwan.claude-dev",
+        "mechatroner.rainbow-csv",
+        "github.vscode-github-actions",
+        "cweijan.vscode-postgresql-client2"
       ]
     }
   },
   "runArgs": ["--group-add", "docker"],
   "postCreateCommand": "sudo chown -R vscode:vscode /home/vscode/.copilot && bash .devcontainer/persist-copilot.sh",
   "postStartCommand": "bash .devcontainer/persist-copilot.sh && bash scripts/setup-env.sh",
-  "remoteUser": "vscode"
+  "remoteUser": "vscode",
+  // "forwardPorts": [5173],
+  // "portsAttributes": {
+  //   "5173": { "label": "frontend", "onAutoForward": "notify" }
+  // }
 }

@@ -11,12 +11,20 @@ spring:
     baseline-on-migrate: false
     validate-on-migrate: true
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
+    # 本地开发默认连 Homebrew Kafka；容器场景由 compose 的 KAFKA_BOOTSTRAP_SERVERS=kafka:9092 覆盖
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
       group-id: triagedeck-alert-ingest
       auto-offset-reset: earliest
+      # 由监听器容器提交；消费方法里的事务回滚 → 位点不前进
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
     producer:
       retries: 3
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      # 应用层用 Jackson 解析，序列化失败可控、便于 DLT
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
   security:
     oauth2:
       resourceserver:
@@ -53,7 +61,7 @@ app:
         notify: triagedeck-notify
   keycloak:
     admin:
-      base-url: http://keycloak:8081
+      base-url: ${KC_ADMIN_BASE_URL:http://localhost:8081}
       realm: triagedeck
       client-id: triagedeck-audit-collector
       client-secret: ${KC_COLLECTOR_SECRET:}

@@ -118,6 +118,21 @@ sequenceDiagram
 
 字段与错误码见 `02b-contract.md §3`（#11、#12）。
 
+**前端账号入口（UI 增量，无新端点、无新 US）**
+
+| 入口 | 目标 | 说明 |
+|---|---|---|
+| `Profile` | `{issuer}/account/` | Keycloak Account Console 首页 = 个人信息（firstName / lastName / email） |
+| `Password` | `{issuer}/account/account-security/signing-in` | Account Console 的「Signing in」页改密码 |
+| `Keycloak Admin console` | `{keycloak}/admin/{realm}/console/` | 需 realm 管理员；普通账号由 Keycloak 拒绝 |
+
+- 三个入口都是浏览器跳转，应用**不**读写这些字段，因此不涉及 `02b-contract.md` 的任何 DTO。
+- 为什么不应用内直调：Admin API 前端禁用（`AGENTS.md §2.1.6`）；Account REST API 虽然存在，
+  但 Keycloak 26 的真实响应不带 CORS 头（实测 preflight 有 `Access-Control-Allow-Origin`，GET/POST 没有），
+  从 `:8080` 跨源直连会被浏览器拦截。要做应用内表单，必须加后端代理端点并同步改契约。
+- 前提：`operator` / `viewer` 需要 `account` 客户端角色 `view-profile`、`manage-account`
+  （`keycloak/realm-export.json` 已补；缺这两个角色时 Account Console 读不到资料）。
+
 ## 6. 事务与一致性
 
 - 本模块**无业务事务**；`PermissionService`、`JwtRoleConverter` 都是纯内存操作。

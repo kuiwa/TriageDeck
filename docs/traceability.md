@@ -11,13 +11,14 @@
 | A3 | 角色差异 | 本期 | §4.3 §4.4 | `lld/01 §2 §5` | #11 #12 | — | `WhoamiIT` `PermissionCheckIT` / T03 |
 | A4 | 后端拦截越权 | 本期 | §4 §6.1 | `lld/01 §4.2 §7` | #4 #12 | `audit_event` | `AccessDeniedAuditIT` / T03 T08 |
 | A5 | 授权可配置 | 本期 | §4.1 §4.4 | `lld/01 §3 §4.3` | #12 | — | `PermissionServiceTest` `PermissionCheckIT` / T03 |
-| B1 | 双入口上报 | 本期 | §2.5 §5.1 | `lld/02 §4.1`、`lld/05 §4.1` | #5 | `alerts_active` `alert_event` | `IngestIT` `KafkaIngestIT` / T04 T10 |
-| B2 | 去重聚合 | 本期 | §2.5 | `lld/02 §3.1 §4.1 §4.2` | #5 #3 | `alerts_active` `alert_event` | `IngestIT` `FingerprintTest` / T04 |
+| B1 | 双入口上报 | 本期 | §2.5 §5.1 | `lld/02 §4.1`、`lld/05 §4.1` | #5 | `alerts_active` `alert_event` | `AlertKafkaConsumerServiceTest` `NotificationConsumerServiceTest` `DomainEventBusTest` / T04 T10 |
+| B2 | 去重聚合 | 本期 | §2.5 | `lld/02 §3.1 §4.1 §4.2` | #5 #3 | `alerts_active` `alert_event` | `AlertIngestIT` `FingerprintTest` / T04 |
 | B3 | 活动列表 | 本期 | §3(#1) §2.1 | `lld/02 §3.3 §5` | #1 | `alerts_active` | `ActiveListIT` / T05 |
 | B4 | 告警详情 | 本期 | §3(#3) §2.4 | `lld/02 §3.3 §5` | #3 | `alert_event` | `AlertDetailIT` / T05 |
 | B5 | 清除移入历史 | 本期 | §2.6 §3(#4) | `lld/02 §3.2 §4.3` | #4 | `alerts_active` `alerts_history` | `ClearIT` / T06 |
 | B6 | 历史查询 | 本期 | §3(#2) §2.2 | `lld/02 §3.3 §5` | #2 | `alerts_history` | `HistoryIT` / T07 |
 | B7 | 自动清除（可选） | 二期 | §2.6（`clear_mode`） | — | — | `alerts_history.clear_mode` | 二期（ADR-0009） |
+| B8 | 级别分布看板 | 本期 | §3(#1) §2.1 | `lld/02 §3.3` | #1 | `alerts_active` | `SeverityDashboard`（前端，复用 #1） / 增量 |
 | C1 | 登录登出记录 | 本期 | §6.4 §7.3 | `lld/03 §4.3 §5` | #6 | `audit_event` `keycloak_cursor` | `KeycloakCollectIT` / T09 |
 | C2 | 清除留痕 | 本期 | §6.1 §6.2 §6.3 | `lld/03 §4.1 §7` | #4 #6 | `audit_event` | `AuditWriteIT` / T06 T08 |
 | C3 | 越权留痕 | 本期 | §6.1 | `lld/03 §4.2`、`lld/01 §4.2` | #4 #6 | `audit_event` | `AccessDeniedAuditIT` / T08 |
@@ -31,7 +32,7 @@
 
 ## 统计
 
-- 本期 19 条 / 二期 3 条（B7、C6、D3）——与 `03-scope-v1.md §1` 一致。
+- 本期 20 条 / 二期 3 条（B7、C6、D3）——与 `03-scope-v1.md §1` 一致。
 - 非功能：NFR-01…08 的落点见 `02-design.md §9.1`，度量命令见各 LLD §9。
 
 ## 交付检查（T13）
