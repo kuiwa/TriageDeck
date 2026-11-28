@@ -12,6 +12,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -21,10 +22,13 @@ public class AiBriefingService {
 
     private final AlertReadPort alertReadPort;
     private final ObjectMapper objectMapper;
+    private final AiGateway aiGateway;
 
-    public AiBriefingService(AlertReadPort alertReadPort, ObjectMapper objectMapper) {
+    public AiBriefingService(AlertReadPort alertReadPort, ObjectMapper objectMapper,
+                             AiGateway aiGateway) {
         this.alertReadPort = alertReadPort;
         this.objectMapper = objectMapper;
+        this.aiGateway = aiGateway;
     }
 
     /**
@@ -43,8 +47,26 @@ public class AiBriefingService {
         }
 
         try {
-            Briefing briefing = buildBriefing(alert);
-            for (String chunk : splitSummary(briefing.summary())) {
+            Optional<String> modelJson = aiGateway.toBriefingJson(alert);
+            Briefing briefing = null;
+            boolean degraded = true;
+            if (modelJson.isPresent()) {
+                try {
+                    briefing = objectMapper.readValue(modelJson.get(), Briefing.class);
+                    degraded = false;
+                } catch (Exception parseError) {
+                    briefing = null;
+                }
+            }
+            if (briefing == null) {
+                briefing = buildBriefing(alert);
+                degraded = true;
+            }
+
+            String streamSource = briefing.summary() != null && !briefing.summary().isBlank()
+                    ? briefing.summary()
+                    : joinItemText(briefing);
+            for (String chunk : splitSummary(streamSource)) {
                 emitter.send(SseEmitter.event()
                         .name("delta")
                         .data(objectMapper.writeValueAsString(Map.of("text", chunk))));
@@ -53,14 +75,22 @@ public class AiBriefingService {
                     .name("done")
                     .data(objectMapper.writeValueAsString(Map.of(
                             "briefing", briefing,
-                            "degraded", true,
-                            "model", "mock",
+                            "degraded", degraded,
+                            "model", degraded ? "mock" : aiGateway.modelName(),
                             "promptVersion", "briefing-v1"))));
             emitter.complete();
         } catch (Exception e) {
             emitter.completeWithError(e);
         }
         return emitter;
+    }
+
+    private String joinItemText(Briefing briefing) {
+        StringBuilder sb = new StringBuilder();
+        for (BriefingItem item : briefing.impact()) sb.append(item.text()).append(' ');
+        for (BriefingItem item : briefing.hypotheses()) sb.append(item.text()).append(' ');
+        for (BriefingItem item : briefing.actions()) sb.append(item.text()).append(' ');
+        return sb.toString().trim();
     }
 
     private Briefing buildBriefing(AlertView alert) {

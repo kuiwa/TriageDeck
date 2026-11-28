@@ -102,6 +102,9 @@ services:
       KEYCLOAK_ISSUER_URI: http://localhost:8081/realms/triagedeck
       KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/triagedeck/protocol/openid-connect/certs
       KC_COLLECTOR_SECRET: ${KC_COLLECTOR_SECRET:-}
+      AI_BASE_URL: ${AI_BASE_URL:-}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-gpt-4o-mini}
     ports:
       - "8080:8080"
     depends_on:

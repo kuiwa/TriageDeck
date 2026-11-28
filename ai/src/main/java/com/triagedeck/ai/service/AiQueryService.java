@@ -1,5 +1,6 @@
 package com.triagedeck.ai.service;
 
+import com.triagedeck.ai.AiGateway;
 import com.triagedeck.ai.api.AiFilter;
 import com.triagedeck.ai.api.AiQueryItem;
 import com.triagedeck.ai.api.AiQueryRequest;
@@ -10,7 +11,6 @@ import com.triagedeck.alert.api.AlertPageView;
 import com.triagedeck.alert.api.AlertView;
 import com.triagedeck.alert.api.port.AlertReadPort;
 import com.triagedeck.platform.trace.TraceIds;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * AI 自然语言查询服务。
@@ -36,14 +37,14 @@ public class AiQueryService {
 
     private final AlertReadPort alertReadPort;
     private final TraceIds traceIds;
-    private final boolean mock;
+    private final AiGateway aiGateway;
 
     public AiQueryService(AlertReadPort alertReadPort,
                           TraceIds traceIds,
-                          @Value("${app.ai.mock:false}") boolean mock) {
+                          AiGateway aiGateway) {
         this.alertReadPort = alertReadPort;
         this.traceIds = traceIds;
-        this.mock = mock;
+        this.aiGateway = aiGateway;
     }
 
     @Transactional(readOnly = true)
@@ -51,8 +52,13 @@ public class AiQueryService {
         String question = request.question();
         int limit = clampLimit(request.limit());
 
-        Map<String, Object> filterMap = parseQuestionToFilter(question);
-        String filterJson = toJson(filterMap);
+        if (!aiGateway.isEnabled()) {
+            throw new AiQueryUnavailableException(traceIds.current());
+        }
+
+        Optional<String> modelJson = aiGateway.toFilterJson(question);
+        boolean degraded = modelJson.isEmpty();
+        String filterJson = modelJson.orElseGet(() -> toJson(parseQuestionToFilter(question)));
 
         QueryFilterMapper.Result<AlertFilter> result = QueryFilterMapper.map(filterJson);
         if (result.isParseError || result.value == null) {
@@ -78,9 +84,9 @@ public class AiQueryService {
             items.add(AiQueryItem.from(alert));
         }
 
-        String explanation = mock
-                ? "模拟解析（未接入真实模型）：从问题中提取了严重级别/关键词/时间范围；结果仅供演示。"
-                : "已按受控条件查询活动告警。";
+        String explanation = degraded
+                ? "大模型未配置或调用失败，已回退关键词规则解析（结果可能不完整）。"
+                : "已由大模型解析为受控筛选条件（" + aiGateway.modelName() + "）。";
 
         return new AiQueryResponse(
                 aiFilter, items, page.total(), page.page(), page.size(),
