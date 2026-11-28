@@ -27,6 +27,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Keycloak 事件定时采集器（US-C1）：client_credentials 拉取 LOGIN/LOGOUT/LOGIN_ERROR，
@@ -49,6 +50,9 @@ public class KeycloakEventCollector {
     private final CollectorState collectorState;
     private final TraceIds traceIds;
     private final JdbcTemplate jdbcTemplate;
+
+    /** Keycloak 26 事件不带 username（LOGOUT），按 userId 回查后缓存，避免重复调用。 */
+    private final Map<String, String> usernameCache = new ConcurrentHashMap<>();
 
     @Value("${app.keycloak.admin.base-url:http://keycloak:8081}")
     private String keycloakBaseUrl;
@@ -192,46 +196,61 @@ public class KeycloakEventCollector {
     }
 
     private boolean writeEvent(Map<String, Object> event, String traceId) {
-        String eventId = stringValue(event.get("id"));
         String type = stringValue(event.get("type"));
         AuditAction action = mapAction(type);
         Object timeObj = event.get("time");
-        if (eventId == null || action == null || !(timeObj instanceof Number time)) {
+        if (action == null || !(timeObj instanceof Number time)) {
             return false;
         }
 
         String userId = stringValue(event.get("userId"));
         String ipAddress = stringValue(event.get("ipAddress"));
-        String actor = extractUsername(event, userId);
+        String sessionId = stringValue(event.get("sessionId"));
+        String sourceEventId = buildSourceEventId(type, time.longValue(), sessionId, userId, event);
+        String actor = resolveActor(event, userId);
 
         Map<String, Object> detail = new LinkedHashMap<>();
         detail.put("type", type);
         detail.put("userId", userId);
+        detail.put("sessionId", sessionId);
         detail.put("ipAddress", ipAddress);
+        detail.put("clientId", stringValue(event.get("clientId")));
 
         try {
             auditWriter.write(new AuditCommand(
                     UUID.randomUUID(),
                     Instant.ofEpochMilli(time.longValue()),
-                    actor != null ? actor : "unknown",
-                    actor != null ? ActorType.USER : ActorType.SYSTEM,
+                    actor,
+                    userId != null || !"unknown".equals(actor) ? ActorType.USER : ActorType.SYSTEM,
                     action,
                     TargetType.AUTH,
-                    eventId,
+                    sourceEventId,
                     mapOutcome(type),
                     "KEYCLOAK",
-                    eventId,
+                    sourceEventId,
                     maskIp(ipAddress),
                     traceId,
                     detail));
             return true;
         } catch (Exception e) {
-            log.error("action=keycloak_insert_failed eventId={} reason={}", eventId, e.toString());
+            log.error("action=keycloak_insert_failed eventId={} reason={}", sourceEventId, e.toString());
             return false;
         }
     }
 
-    private String extractUsername(Map<String, Object> event, String fallbackUserId) {
+    /**
+     * Keycloak 26 的事件表示不含 id，用 type+time+会话/用户 组合出稳定的 source_event_id，
+     * 保证同一事件重复采集时被 ON CONFLICT 去重。
+     */
+    private String buildSourceEventId(String type, long time, String sessionId, String userId,
+                                      Map<String, Object> event) {
+        String discriminator = sessionId != null ? sessionId
+                : userId != null ? userId
+                : stringValue(event.get("ipAddress"));
+        return "kc:" + type + ":" + time + ":" + (discriminator != null ? discriminator : "unknown");
+    }
+
+    private String resolveActor(Map<String, Object> event, String userId) {
         Object details = event.get("details");
         if (details instanceof Map<?, ?> map) {
             Object username = map.get("username");
@@ -239,7 +258,34 @@ public class KeycloakEventCollector {
                 return s;
             }
         }
-        return fallbackUserId;
+        String lookedUp = lookupUsername(userId);
+        if (lookedUp != null) {
+            return lookedUp;
+        }
+        return userId != null ? userId : "unknown";
+    }
+
+    private String lookupUsername(String userId) {
+        if (userId == null) {
+            return null;
+        }
+        String cached = usernameCache.get(userId);
+        if (cached != null) {
+            return cached;
+        }
+        try {
+            Map<String, Object> user = restTemplate.exchange(
+                    keycloakBaseUrl + "/admin/realms/" + realm + "/users/" + userId,
+                    HttpMethod.GET, new HttpEntity<>(bearerHeaders()), Map.class).getBody();
+            String username = user == null ? null : stringValue(user.get("username"));
+            if (username != null) {
+                usernameCache.put(userId, username);
+            }
+            return username;
+        } catch (Exception e) {
+            log.debug("action=keycloak_user_lookup_failed userId={}", userId);
+            return null;
+        }
     }
 
     private long readCursor() {
