@@ -116,7 +116,7 @@ for svc in "${SERVICES[@]}"; do
 done
 
 if [[ "$STOP_EXISTING" -eq 1 ]]; then
-  echo "正在停止已存在的 container: ${SERVICES[*]}"
+  echo "正在停止已存在的 container（仅选中的服务）: ${SERVICES[*]}"
   docker compose stop "${SERVICE_ARGS[@]}" || true
 fi
 
@@ -125,8 +125,18 @@ if [[ "$DO_BUILD" -eq 1 ]]; then
   docker compose build app
 fi
 
-echo "正在启动 container: ${SERVICES[*]}"
-docker compose up -d --wait --wait-timeout 240 "${SERVICE_ARGS[@]}"
+# 仅启动/重建被选中的服务；--no-deps 避免连带拉起或重建未选中的依赖服务
+if [[ " ${SERVICES[*]} " == *" app "* ]]; then
+  RUNNING_SERVICES="$(docker compose ps --status running --services 2>/dev/null || true)"
+  for dep in postgres kafka keycloak; do
+    if ! grep -qx "$dep" <<<"$RUNNING_SERVICES"; then
+      echo "WARN: app 依赖 $dep 目前未运行。若希望一并启动，请选择“全部”或把 $dep 也加入本次选择。"
+    fi
+  done
+fi
+
+echo "正在启动 container（仅选中的服务）: ${SERVICES[*]}"
+docker compose up -d --wait --wait-timeout 240 --no-deps "${SERVICE_ARGS[@]}"
 docker compose ps
 
 echo
