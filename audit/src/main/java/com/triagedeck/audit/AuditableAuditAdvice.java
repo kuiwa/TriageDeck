@@ -40,6 +40,7 @@ public class AuditableAuditAdvice implements MethodInterceptor {
         this.auditWriter = auditWriter;
         this.securityContext = securityContext;
         this.traceIds = traceIds;
+        log.info("action=audit_advice_initialized");
     }
 
     @Override
@@ -75,6 +76,9 @@ public class AuditableAuditAdvice implements MethodInterceptor {
             detail.put("targetIdParam", auditable.targetIdParam());
             detail.put("outcome", outcome.name());
 
+            log.info("action=audit_record action={} outcome={} targetType={} targetId={}",
+                    auditable.action(), outcome, auditable.targetType(), targetId);
+
             auditWriter.write(new AuditCommand(
                     UUID.randomUUID(),
                     Instant.now(),
@@ -92,7 +96,7 @@ public class AuditableAuditAdvice implements MethodInterceptor {
         } catch (Exception e) {
             // 审计失败不影响主流程（AGENTS：catch + error 日志，不打印敏感信息）
             log.error("action=audit_write_failed auditAction={} reason={}",
-                    auditable.action(), e.getClass().getSimpleName());
+                    auditable.action(), e.toString());
         }
     }
 
