@@ -112,7 +112,7 @@ public class KeycloakEventCollector {
                     : LocalDate.ofInstant(Instant.ofEpochMilli(lastEventTime), ZoneOffset.UTC)
                             .minusDays(1);
 
-            int insertedTotal = 0;
+            int processedTotal = 0;
             long maxSeen = lastEventTime;
 
             for (int page = 0; page < maxPages; page++) {
@@ -124,13 +124,25 @@ public class KeycloakEventCollector {
                 if (events == null || events.isEmpty()) {
                     break;
                 }
+                // Keycloak 按时间倒序返回，LOGOUT 先于同一会话的 LOGIN；先整页预扫用户名映射，
+                // 这样 LOGOUT 无需额外权限（view-users）也能解析出 actor。
+                for (Map<String, Object> event : events) {
+                    rememberUsername(event);
+                }
                 for (Map<String, Object> event : events) {
                     Object timeObj = event.get("time");
-                    if (timeObj instanceof Number n && n.longValue() > maxSeen) {
-                        maxSeen = n.longValue();
+                    if (timeObj instanceof Number n) {
+                        long eventTime = n.longValue();
+                        if (eventTime > maxSeen) {
+                            maxSeen = eventTime;
+                        }
+                        // 游标之前的旧事件不再重复处理（相同毫秒仍处理，靠 ON CONFLICT 去重）
+                        if (eventTime < lastEventTime) {
+                            continue;
+                        }
                     }
                     if (writeEvent(event, traceId)) {
-                        insertedTotal++;
+                        processedTotal++;
                     }
                 }
                 if (events.size() < pageSize) {
@@ -141,9 +153,9 @@ public class KeycloakEventCollector {
             if (maxSeen > lastEventTime) {
                 upsertCursor(maxSeen);
             }
-            collectorState.recordRound(insertedTotal);
+            collectorState.recordRound(processedTotal);
             collectorState.setCollectorLastRunAt(Instant.now());
-            log.info("action=keycloak_collect inserted={} lastEventTime={}", insertedTotal, maxSeen);
+            log.info("action=keycloak_collect processed={} lastEventTime={}", processedTotal, maxSeen);
         } catch (Exception e) {
             collectorState.setCollectorLastRunAt(Instant.now());
             log.error("action=keycloak_collect_failed reason={}", e.toString());
@@ -248,6 +260,15 @@ public class KeycloakEventCollector {
                 : userId != null ? userId
                 : stringValue(event.get("ipAddress"));
         return "kc:" + type + ":" + time + ":" + (discriminator != null ? discriminator : "unknown");
+    }
+
+    private void rememberUsername(Map<String, Object> event) {
+        String userId = stringValue(event.get("userId"));
+        Object details = event.get("details");
+        if (userId != null && details instanceof Map<?, ?> map
+                && map.get("username") instanceof String username && !username.isBlank()) {
+            usernameCache.putIfAbsent(userId, username);
+        }
     }
 
     private String resolveActor(Map<String, Object> event, String userId) {
